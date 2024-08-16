@@ -40,6 +40,7 @@ return {
                 "emmet_ls",
                 "yamlls",
                 "zls",
+                "texlab",
             },
             automatic_installation = true,
         })

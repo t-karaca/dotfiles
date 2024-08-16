@@ -149,7 +149,10 @@ yay -S --needed \
     teams-for-linux \
     gnome-disk-utility \
     ldns \
-    aria2
+    aria2 \
+    argocd \
+    mktorrent \
+    nvtop
 
 if [ "1" = "0" ]; then
     yay -S --needed \
@@ -159,7 +162,24 @@ if [ "1" = "0" ]; then
         lib32-libpulse \
         lib32-pipewire \
         steam \
-        bottles
+        bottles \
+        wine
+fi
+
+if [ "1" = "0" ]; then
+    yay -S --needed \
+        texlive-basic \
+        texlive-latex \
+        texlive-latexrecommended \
+        texlive-latexextra \
+        texlive-fontsrecommended \
+        texlive-plaingeneric \
+        texlive-bibtexextra \
+        texlive-mathscience \
+        texlive-xetex \
+        texlive-binextra \
+        texlive-langgerman \
+        biber
 fi
 
 # curl https://fedoraproject.org/fedora.gpg | gpg --import
