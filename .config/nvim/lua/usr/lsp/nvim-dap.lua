@@ -29,6 +29,9 @@ return {
                 },
             }
 
+            require("dap.ext.vscode").load_launchjs()
+            require("dap.ext.vscode").load_launchjs(".vscode/launch-private.json")
+
             local function pick_config()
                 local filetype = vim.bo.filetype
                 local configs = dap.configurations[filetype]
