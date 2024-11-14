@@ -1,6 +1,3 @@
-import = ["/home/karaca/.config/alacritty/catppuccin/catppuccin-mocha.toml"]
-live_config_reload = true
-
 [env]
 TERM = "xterm-256color"
 
@@ -37,7 +34,7 @@ mods = "Alt"
 blur = true
 decorations = "none"
 dynamic_padding = true
-opacity = 0.85
+opacity = 0.8
 dynamic_title = true
 
 [window.padding]
@@ -55,3 +52,7 @@ white = "#ffffff"
 [colors.dim]
 magenta = "#b38da8"
 white = "#ffffff"
+
+[general]
+live_config_reload = true
+import = ["~/.config/alacritty/catppuccin/catppuccin-mocha.toml"]

@@ -10,6 +10,12 @@ return {
             flavour = "mocha",
             no_italic = true,
             integrations = {
+                lsp_trouble = true,
+                blink_cmp = true,
+                telescope = {
+                    enabled = true,
+                    style = "nvchad",
+                },
                 -- for transparent background, looks better without integration
                 nvimtree = false,
                 diffview = false,

@@ -20,11 +20,6 @@ vim.keymap.set(
     { desc = "Dynamic workspace symbols" }
 )
 
-vim.keymap.set("n", "<leader>dv", "<cmd>DiffviewOpen<CR>", { desc = "Open diffview" })
-vim.keymap.set("n", "<leader>df", "<cmd>DiffviewFileHistory<CR>", { desc = "Open diffview for history" })
-vim.keymap.set("n", "<leader>df", "<cmd>DiffviewFileHistory %<CR>", { desc = "History for current file" })
-vim.keymap.set("n", "<leader>dc", "<cmd>DiffviewClose<CR>", { desc = "Close diffview" })
-
 vim.keymap.set("n", "<leader>bd", "<cmd>bp <bar>bd #<CR>", { desc = "Close current buffer" })
 
 vim.keymap.set("n", "<C-n>", "<cmd>NvimTreeToggle <CR>", { desc = "Toggle NvimTree" })
@@ -48,9 +43,6 @@ vim.keymap.set({ "n", "v" }, "<C-p>", '"+p', { desc = "Paste from system clipboa
 vim.keymap.set("n", "<leader>y", '"+y', { desc = "Yank into system clipboard" })
 vim.keymap.set("v", "<leader>y", '"+y', { desc = "Yank into system clipboard" })
 vim.keymap.set("n", "<leader>Y", '"+Y', { desc = "Yank into system clipboard" })
-
--- vim.keymap.set("n", "<leader>d", '"_d')
--- vim.keymap.set("v", "<leader>d", '"_d')
 
 vim.keymap.set("n", "<leader>fx", "<cmd>!chmod +x %<CR>", { desc = "Make current file executable" })
 

@@ -5,6 +5,13 @@ return {
     config = function()
         local nvimsurround = require("nvim-surround")
 
-        nvimsurround.setup()
+        nvimsurround.setup({
+            keymaps = {
+                normal = "gs",
+                normal_cur = "gss",
+                normal_line = "gS",
+                normal_cur_line = "gS",
+            },
+        })
     end,
 }

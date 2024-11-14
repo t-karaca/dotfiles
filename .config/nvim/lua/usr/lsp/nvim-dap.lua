@@ -4,12 +4,28 @@ return {
         lazy = true,
         event = { "VeryLazy" },
         config = function()
-            vim.fn.sign_define("DapBreakpoint", { text = "", texthl = "ErrorMsg", linehl = "", numhl = "" })
+            vim.fn.sign_define("DapBreakpoint", {
+                text = "",
+                texthl = "DapBreakpoint",
+                linehl = "",
+                numhl = "",
+            })
+
+            vim.fn.sign_define("DapBreakpointCondition", {
+                text = "●",
+                texthl = "DapBreakpointCondition",
+                linehl = "",
+                numhl = "",
+            })
+
+            vim.fn.sign_define("DapLogPoint", {
+                text = "◆",
+                texthl = "DapLogPoint",
+                linehl = "",
+                numhl = "",
+            })
 
             local dap = require("dap")
-
-            vim.keymap.set("n", "<leader>bb", dap.toggle_breakpoint, { desc = "Toggle breakpoint" })
-            vim.keymap.set("n", "<leader>rl", dap.run_last, { desc = "Run last debug session" })
 
             vim.keymap.set("n", "<F6>", function()
                 dap.continue({ new = false })
@@ -18,6 +34,13 @@ return {
             vim.keymap.set("n", "<F8>", dap.step_over, { desc = "Step over" })
             vim.keymap.set("n", "<F9>", dap.step_out, { desc = "Step out" })
             vim.keymap.set("n", "<F10>", dap.step_back, { desc = "Step back" })
+
+            vim.keymap.set("n", "<leader>bb", dap.toggle_breakpoint, { desc = "Toggle breakpoint" })
+            vim.keymap.set("n", "<leader>bc", dap.clear_breakpoints, { desc = "Clear breakpoints" })
+            vim.keymap.set("n", "<leader>bl", function()
+                dap.list_breakpoints()
+                require("telescope.builtin").quickfix()
+            end, { desc = "List breakpoints" })
 
             dap.configurations.java = {
                 {
@@ -29,27 +52,11 @@ return {
                 },
             }
 
-            require("dap.ext.vscode").load_launchjs()
+            require("dap.ext.vscode").load_launchjs(".vscode/launch.json")
             require("dap.ext.vscode").load_launchjs(".vscode/launch-private.json")
 
-            local function pick_config()
-                local filetype = vim.bo.filetype
-                local configs = dap.configurations[filetype]
-
-                if configs ~= nil then
-                    vim.ui.select(configs, {
-                        format_item = function(item)
-                            return item.name
-                        end,
-                    }, function(item)
-                        if item ~= nil then
-                            dap.run(item)
-                        end
-                    end)
-                end
-            end
-
-            vim.keymap.set("n", "<leader>rp", pick_config, { desc = "Pick debug configuration" })
+            vim.keymap.set("n", "<leader>rp", dap.continue, { desc = "Pick debug configuration" })
+            vim.keymap.set("n", "<leader>rl", dap.run_last, { desc = "Run last debug session" })
         end,
     },
     {
@@ -99,7 +106,11 @@ return {
                         elements = {
                             {
                                 id = "console",
-                                size = 1,
+                                size = 0.75,
+                            },
+                            {
+                                id = "stacks",
+                                size = 0.25,
                             },
                         },
                         position = "bottom",
@@ -150,6 +161,15 @@ return {
         event = { "VeryLazy" },
         config = function()
             require("nvim-dap-virtual-text").setup({})
+        end,
+    },
+    {
+        "julianolf/nvim-dap-lldb",
+        dependencies = { "mfussenegger/nvim-dap" },
+        lazy = true,
+        ft = { "c", "cpp", "rust", "zig" },
+        config = function()
+            require("dap-lldb").setup({})
         end,
     },
 }

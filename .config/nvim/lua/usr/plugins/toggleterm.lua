@@ -1,6 +1,7 @@
 return {
     "akinsho/toggleterm.nvim",
     version = "*",
+    enabled = false,
     config = function()
         local toggleterm = require("toggleterm")
         local colors = require("catppuccin.palettes").get_palette("mocha")

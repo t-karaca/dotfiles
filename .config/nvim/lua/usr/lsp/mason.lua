@@ -4,6 +4,7 @@ return {
         "williamboman/mason-lspconfig.nvim",
         "WhoIsSethDaniel/mason-tool-installer.nvim",
     },
+    cmd = { "Mason" },
     config = function()
         local mason = require("mason")
 
@@ -23,42 +24,57 @@ return {
 
         mason_lspconfig.setup({
             ensure_installed = {
+                -- Backend
                 "gopls",
                 "jdtls",
-                "bashls",
-                "gradle_ls",
-                "dockerls",
+                "clangd",
+                "zls",
+
+                -- Config
                 "jsonls",
-                -- "groovyls",
+                "yamlls",
+                "lemminx",
+
+                -- Other
+                "dockerls",
+                "gradle_ls",
+                "bashls",
                 "helm_ls",
-                "tsserver",
+                "lua_ls",
+                "texlab",
+
+                -- Frontend
                 "html",
                 "cssls",
-                -- "tailwindcss",
-                -- "svelte",
-                "lua_ls",
+                "tailwindcss",
+                "ts_ls",
                 "emmet_ls",
-                "yamlls",
-                "zls",
-                "texlab",
+                "angularls",
             },
             automatic_installation = true,
         })
 
         mason_tool_installer.setup({
             ensure_installed = {
+                -- DAP
+                "delve",
+                "java-debug-adapter",
+                "java-test",
+                "codelldb",
+
+                -- Linters
+                "eslint_d",
+                "shellcheck",
+                "golangci-lint",
+                "hadolint",
+
+                -- Formatters
                 "goimports",
                 "prettierd",
                 "shfmt",
                 "sqlfmt",
                 "stylua",
-                "eslint_d",
-                "shellcheck",
-                "markdownlint",
-                "golangci-lint",
-                "delve",
-                "java-debug-adapter",
-                "java-test",
+                "clang-format",
             },
         })
     end,

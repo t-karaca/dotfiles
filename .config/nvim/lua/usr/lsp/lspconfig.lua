@@ -3,28 +3,60 @@ return {
     lazy = true,
     event = { "BufReadPre", "BufNewFile" },
     dependencies = {
-        "folke/neodev.nvim",
-        "hrsh7th/cmp-nvim-lsp",
         { "antosha417/nvim-lsp-file-operations", config = true },
+        "b0o/schemastore.nvim",
+        "williamboman/mason.nvim",
+        "someone-stole-my-name/yaml-companion.nvim",
     },
     config = function()
-        local neodev = require("neodev")
-
-        neodev.setup({})
-
         local lspconfig = require("lspconfig")
-
-        local cmp_nvim_lsp = require("cmp_nvim_lsp")
 
         local on_attach = require("usr.core.lspkeymaps").on_attach
 
-        local capabilities = cmp_nvim_lsp.default_capabilities()
+        local capabilities = require("blink.cmp").get_lsp_capabilities()
 
         local signs = { Error = " ", Warn = " ", Hint = "󰠠 ", Info = " " }
         for type, icon in pairs(signs) do
             local hl = "DiagnosticSign" .. type
             vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
         end
+
+        -- local configs = require("lspconfig.configs")
+
+        -- configs["emmylua"] = {
+        --     default_config = {
+        --         cmd = { "/mnt/data/Downloads/EmmyLua.LanguageServer/EmmyLua.LanguageServer" },
+        --         -- cmd = { "java", "-cp", "/mnt/data/Downloads/EmmyLua-LS-all.jar", "com.tang.vscode.MainKt" },
+        --         filetypes = { "lua" },
+        --         root_dir = function(fname)
+        --             return lspconfig.util.find_git_ancestor(fname)
+        --         end,
+        --         -- init_options = {
+        --         --     configFiles = { uri = ".luarc.json", workspace = "Content/Script" },
+        --         -- },
+        --         settings = {},
+        --     },
+        -- }
+
+        -- lspconfig["emmylua"].setup({
+        --     capabilities = capabilities,
+        --     on_attach = on_attach,
+        -- })
+
+        lspconfig["mesonlsp"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
+        lspconfig["clangd"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
+        lspconfig["lemminx"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
 
         lspconfig["gopls"].setup({
             capabilities = capabilities,
@@ -51,67 +83,23 @@ return {
             on_attach = on_attach,
         })
 
+        lspconfig["rust_analyzer"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
         lspconfig["jsonls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
             settings = {
                 json = {
-                    -- Schemas https://www.schemastore.org
-                    schemas = {
-                        {
-                            fileMatch = { "package.json" },
-                            url = "https://json.schemastore.org/package.json",
-                        },
-                        {
-                            fileMatch = { "tsconfig*.json" },
-                            url = "https://json.schemastore.org/tsconfig.json",
-                        },
-                        {
-                            fileMatch = {
-                                ".prettierrc",
-                                ".prettierrc.json",
-                                "prettier.config.json",
-                            },
-                            url = "https://json.schemastore.org/prettierrc.json",
-                        },
-                        {
-                            fileMatch = { ".eslintrc", ".eslintrc.json" },
-                            url = "https://json.schemastore.org/eslintrc.json",
-                        },
-                        {
-                            fileMatch = { ".babelrc", ".babelrc.json", "babel.config.json" },
-                            url = "https://json.schemastore.org/babelrc.json",
-                        },
-                        {
-                            fileMatch = { "lerna.json" },
-                            url = "https://json.schemastore.org/lerna.json",
-                        },
-                        {
-                            fileMatch = { "now.json", "vercel.json" },
-                            url = "https://json.schemastore.org/now.json",
-                        },
-                        {
-                            fileMatch = {
-                                ".stylelintrc",
-                                ".stylelintrc.json",
-                                "stylelint.config.json",
-                            },
-                            url = "http://json.schemastore.org/stylelintrc.json",
-                        },
-                    },
+                    schemas = require("schemastore").json.schemas(),
+                    validate = { enable = true },
                 },
             },
         })
 
-        -- lspconfig["groovyls"].setup({
-        -- 	cmd = { "groovy-language-server" },
-        -- 	capabilities = capabilities,
-        -- 	on_attach = on_attach,
-        -- })
-
         lspconfig["helm_ls"].setup({
-            filetypes = { "helm" },
-            cmd = { "helm_ls", "serve" },
             capabilities = capabilities,
             on_attach = on_attach,
         })
@@ -120,6 +108,49 @@ return {
             capabilities = capabilities,
             on_attach = on_attach,
         })
+
+        lspconfig["angularls"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+            root_dir = lspconfig.util.root_pattern("angular.json", "nx.json", "package.json"),
+        })
+
+        local yamlCfg = require("yaml-companion").setup({
+            schemas = require("schemastore").yaml.schemas(),
+            lspconfig = {
+                capabilities = capabilities,
+                on_attach = on_attach,
+                settings = {
+                    redhat = { telemetry = { enabled = false } },
+                    yaml = {
+                        schemaStore = {
+                            enable = false,
+                            url = "",
+                        },
+                        schemas = require("schemastore").yaml.schemas(),
+                    },
+                },
+            },
+        })
+
+        lspconfig["yamlls"].setup(yamlCfg)
+
+        -- lspconfig["yamlls"].setup({
+        --     capabilities = capabilities,
+        --     on_attach = on_attach,
+        --     settings = {
+        --         yaml = {
+        --             schemaStore = {
+        --                 -- You must disable built-in schemaStore support if you want to use
+        --                 -- this plugin and its advanced options like `ignore`.
+        --                 enable = false,
+        --                 -- Avoid TypeError: Cannot read properties of undefined (reading 'length')
+        --                 url = "",
+        --             },
+        --             schemas = require("schemastore").yaml.schemas(),
+        --         },
+        --     },
+        -- })
 
         -- lspconfig["yamlls"].setup({
         -- 	capabilities = capabilities,
@@ -148,11 +179,17 @@ return {
         lspconfig["html"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
+            filetypes = { "html", "htmlangular", "templ" },
         })
 
-        lspconfig["tsserver"].setup({
+        lspconfig["ts_ls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
+            init_options = {
+                preferences = {
+                    importModuleSpecifierPreference = "non-relative",
+                },
+            },
         })
 
         lspconfig["cssls"].setup({
@@ -160,60 +197,30 @@ return {
             on_attach = on_attach,
         })
 
-        -- configure tailwindcss server
-        -- lspconfig["tailwindcss"].setup({
-        --   capabilities = capabilities,
-        --   on_attach = on_attach,
-        -- })
-
-        -- configure svelte server
-        -- lspconfig["svelte"].setup({
-        --   capabilities = capabilities,
-        --   on_attach = function(client, bufnr)
-        --     on_attach(client, bufnr)
-        --
-        --     vim.api.nvim_create_autocmd("BufWritePost", {
-        --       pattern = { "*.js", "*.ts" },
-        --       callback = function(ctx)
-        --         if client.name == "svelte" then
-        --           client.notify("$/onDidChangeTsOrJsFile", { uri = ctx.file })
-        --         end
-        --       end,
-        --     })
-        --   end,
-        -- })
-
-        -- configure graphql language server
-        -- lspconfig["graphql"].setup({
-        --     capabilities = capabilities,
-        --     on_attach = on_attach,
-        --     filetypes = { "graphql", "gql", "svelte", "typescriptreact", "javascriptreact" },
-        -- })
+        lspconfig["tailwindcss"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
 
         lspconfig["emmet_ls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
-            filetypes = { "html", "typescriptreact", "javascriptreact", "css", "sass", "scss", "less", "svelte" },
+            filetypes = {
+                "html",
+                "htmlangular",
+                "typescriptreact",
+                "javascriptreact",
+                "css",
+                "sass",
+                "scss",
+                "less",
+                "svelte",
+            },
         })
 
         lspconfig["lua_ls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
-            settings = {
-                Lua = {
-                    -- make the language server recognize "vim" global
-                    diagnostics = {
-                        globals = { "vim" },
-                    },
-                    workspace = {
-                        -- make language server aware of runtime files
-                        library = {
-                            [vim.fn.expand("$VIMRUNTIME/lua")] = true,
-                            [vim.fn.stdpath("config") .. "/lua"] = true,
-                        },
-                    },
-                },
-            },
         })
     end,
 }

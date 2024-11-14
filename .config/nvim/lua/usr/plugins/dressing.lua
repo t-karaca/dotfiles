@@ -1,9 +1,9 @@
 return {
-	"stevearc/dressing.nvim",
-	event = "VeryLazy",
-	opts = {
-		input = {
-			enabled = false,
-		},
-	},
+    "stevearc/dressing.nvim",
+    event = "VeryLazy",
+    opts = {
+        input = {
+            enabled = false,
+        },
+    },
 }

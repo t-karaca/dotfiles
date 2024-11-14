@@ -131,3 +131,7 @@ alias kpf="kubectl port-forward"
 alias keti="kubectl exec -ti"
 
 alias tl="tldr --list | fzf --preview 'tldr {} --color always' | xargs tldr"
+
+if command -v go-task >/dev/null 2>&1; then
+    alias task="go-task"
+fi

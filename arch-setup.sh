@@ -96,7 +96,6 @@ yay -S --needed \
     bottom \
     gtk-engine-murrine \
     gnome-themes-extra \
-    qalculate-gtk \
     hyprlock \
     hypridle \
     hyprpaper \
@@ -152,7 +151,29 @@ yay -S --needed \
     aria2 \
     argocd \
     mktorrent \
-    nvtop
+    nvtop \
+    whois \
+    flatpak \
+    flatseal \
+    aylurs-gtk-shell \
+    gnome-bluetooth-3.0 \
+    brightnessctl \
+    heroic-games-launcher-bin \
+    cmake \
+    ninja \
+    meson \
+    docker-compose \
+    easyeffects \
+    libdeep_filter_ladspa-bin \
+    mission-center \
+    gnome-calculator \
+    parabolic \
+    bat \
+    mpv \
+    gcolor3 \
+    valgrind \
+    bat \
+    git-delta
 
 if [ "1" = "0" ]; then
     yay -S --needed \
@@ -199,7 +220,7 @@ sudo usermod -aG wireshark "$USER"
 sudo systemctl enable --now sddm.service
 sudo systemctl enable --now libvirtd.socket
 sudo systemctl enable --now docker.socket
-sudo systemctl enable --now swayosd-libinput-backend.service
+# sudo systemctl enable --now swayosd-libinput-backend.service
 sudo systemctl enable --now seatd
 
 sudo systemctl enable nvidia-suspend.service
@@ -207,7 +228,7 @@ sudo systemctl enable nvidia-hibernate.service
 sudo systemctl enable nvidia-resume.service
 
 sudo ln -s /usr/bin/alacritty /usr/bin/xterm
-sudo ln -s /usr/bin/go-task /usr/bin/task
+# sudo ln -s /usr/bin/go-task /usr/bin/task
 
 git-credential-manager configure
 

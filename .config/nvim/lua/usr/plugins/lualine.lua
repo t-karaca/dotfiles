@@ -5,7 +5,8 @@ return {
     },
     config = function()
         local lualine = require("lualine")
-        local theme = require("lualine.themes.auto")
+        -- local theme = require("lualine.themes.auto")
+        local theme = require("lualine.themes.catppuccin-mocha")
 
         -- make background transparent
         theme.inactive.c.bg = nil

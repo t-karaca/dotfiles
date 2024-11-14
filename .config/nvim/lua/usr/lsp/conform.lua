@@ -7,32 +7,48 @@ return {
 
         conform.setup({
             formatters_by_ft = {
+                -- Backend
+                go = { "goimports" },
+                -- java = { "palantir-java-format" },
+                java = { "google-java-format" },
+                c = { "clang-format" },
+                cpp = { "clang-format" },
+
+                -- Config
+                json = { "prettierd" },
+                -- yaml = { "yamlfmt" },
+
+                -- Other
+                lua = { "stylua" },
+                bash = { "shfmt" },
+                sh = { "shfmt" },
+                sql = { "sqlfmt" },
+
+                -- Frontend
                 javascript = { "prettierd" },
                 typescript = { "prettierd" },
                 javascriptreact = { "prettierd" },
                 typescriptreact = { "prettierd" },
-                -- svelte = { "prettierd" },
                 css = { "prettierd" },
                 html = { "prettierd" },
-
-                json = { "prettierd" },
-                -- yaml = { "yamlfmt" },
-
-                lua = { "stylua" },
-                go = { "goimports" },
-                bash = { "shfmt" },
-                sh = { "shfmt" },
-                java = { "palantir-java-format" },
-                sql = { "sqlfmt" },
+                htmlangular = { "prettierd" },
             },
             format_on_save = function(bufnr)
                 -- Disable with a global or buffer-local variable
                 if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
                     return
                 end
+
                 return { timeout_ms = 1000, async = false, lsp_fallback = true }
             end,
             formatters = {
+                prettier = {
+                    options = {
+                        ft_parsers = {
+                            htmlangular = "angular",
+                        },
+                    },
+                },
                 shfmt = {
                     inherit = true,
                     prepend_args = { "-i", "4" },
