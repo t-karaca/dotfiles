@@ -1,6 +1,6 @@
 return {
     "gelguy/wilder.nvim",
-    -- enabled = false,
+    enabled = false,
     config = function()
         local wilder = require("wilder")
 

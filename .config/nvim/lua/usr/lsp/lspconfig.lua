@@ -88,6 +88,11 @@ return {
             on_attach = on_attach,
         })
 
+        lspconfig["glsl_analyzer"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
         lspconfig["jsonls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,

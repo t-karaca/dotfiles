@@ -23,13 +23,16 @@ return {
             },
         })
 
-        vim.cmd("hi Sneak guibg=" .. colors.overlay0 .. " guifg=white gui=bold")
-        vim.cmd("hi SneakLabel guibg=" .. colors.overlay0 .. " guifg=white gui=bold")
-        vim.cmd("hi link SneakLabelMask None")
-
         vim.cmd.colorscheme("catppuccin")
 
         vim.api.nvim_set_hl(0, "TelescopeNormal", { bg = colors.mantle })
         vim.api.nvim_set_hl(0, "TelescopeBorder", { bg = colors.mantle, fg = colors.mantle })
+        vim.api.nvim_set_hl(0, "BlinkCmpMenu", { bg = colors.mantle, fg = colors.mantle })
+        vim.api.nvim_set_hl(0, "BlinkCmpMenuBorder", { bg = colors.mantle, fg = colors.mantle })
+        -- vim.api.nvim_set_hl(0, "BlinkCmpDocBorder", { bg = colors.mantle, fg = colors.mantle })
+        -- vim.api.nvim_set_hl(0, "NoicePopupBorder", { bg = colors.mantle, fg = colors.mantle })
+        -- vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = colors.mantle })
+        -- vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { bg = colors.mantle, fg = colors.mantle })
+        -- vim.api.nvim_set_hl(0, "FloatBorder", { bg = colors.mantle, fg = colors.mantle })
     end,
 }

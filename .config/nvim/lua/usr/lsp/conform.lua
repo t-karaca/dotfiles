@@ -9,8 +9,8 @@ return {
             formatters_by_ft = {
                 -- Backend
                 go = { "goimports" },
-                -- java = { "palantir-java-format" },
-                java = { "google-java-format" },
+                java = { "palantir-java-format" },
+                -- java = { "google-java-format" },
                 c = { "clang-format" },
                 cpp = { "clang-format" },
 

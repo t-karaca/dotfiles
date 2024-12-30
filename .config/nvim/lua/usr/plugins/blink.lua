@@ -9,8 +9,10 @@ return {
     ---@type blink.cmp.Config
     opts = {
         keymap = {
+            preset = "none",
             ["<C-space>"] = { "show", "show_documentation", "hide_documentation" },
-            ["<CR>"] = { "accept", "fallback" },
+            ["<Tab>"] = { "accept", "snippet_forward", "fallback" },
+            ["<S-Tab>"] = { "snippet_forward", "fallback" },
             ["<C-k>"] = { "select_prev", "fallback" },
             ["<C-j>"] = { "select_next", "fallback" },
             ["<Up>"] = { "select_prev", "fallback" },
@@ -18,54 +20,48 @@ return {
             ["<C-d>"] = { "scroll_documentation_down", "fallback" },
             ["<C-u>"] = { "scroll_documentation_up", "fallback" },
         },
-        nerd_font_variant = "mono",
-
-        -- experimental auto-brackets support
-        -- accept = { auto_brackets = { enabled = true } }
-
-        -- experimental signature help support
-        trigger = { signature_help = { enabled = true } },
-        windows = {
-            autocomplete = {
-                min_width = 30,
-                max_height = 20,
-                draw = "reversed",
-                border = "solid",
-                selection = "manual",
+        appearance = {
+            nerd_font_variant = "mono",
+        },
+        completion = {
+            accept = {
+                auto_brackets = {
+                    enabled = true,
+                },
+            },
+            list = {
+                selection = function(ctx)
+                    return ctx.mode == "cmdline" and "auto_insert" or "preselect"
+                end,
             },
             documentation = {
                 auto_show = true,
-                auto_show_delay_ms = 0,
-                update_delay_ms = 0,
-                border = "solid",
+                auto_show_delay_ms = 100,
+                window = {
+                    border = "solid",
+                },
             },
-            signature_help = {
+            menu = {
                 border = "solid",
+                min_width = 30,
+                max_height = 20,
+                scrollbar = false,
+                draw = {
+                    padding = 1,
+                    columns = {
+                        { "label", gap = 1 },
+                        { "kind_icon", "kind", gap = 1 },
+                    },
+                },
+            },
+            ghost_text = {
+                enabled = true,
             },
         },
-
         sources = {
-            completion = {
-                enabled_providers = { "lsp", "path", "snippets", "buffer", "lazydev" },
-            },
+            default = { "lazydev", "lsp", "path", "snippets", "buffer" },
             providers = {
-                lsp = {
-                    name = "LSP",
-                    module = "blink.cmp.sources.lsp",
-
-                    --- *All* of the providers have the following options available
-                    --- NOTE: All of these options may be functions to get dynamic behavior
-                    --- See the type definitions for more information
-                    enabled = true, -- whether or not to enable the provider
-                    transform_items = nil, -- function to transform the items before they're returned
-                    should_show_items = true, -- whether or not to show the items
-                    max_items = nil, -- maximum number of items to return
-                    min_keyword_length = 0, -- minimum number of characters to trigger the provider
-                    fallback_for = {}, -- if any of these providers return 0 items, it will fallback to this provider
-                    score_offset = 10, -- boost/penalize the score of the items
-                    override = nil, -- override the source's functions
-                },
-                lazydev = { name = "LazyDev", module = "lazydev.integrations.blink" },
+                lazydev = { name = "LazyDev", module = "lazydev.integrations.blink", score_offset = 100 },
             },
         },
     },

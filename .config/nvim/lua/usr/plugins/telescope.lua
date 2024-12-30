@@ -6,6 +6,7 @@ return {
     dependencies = {
         "nvim-lua/plenary.nvim",
         "nvim-tree/nvim-web-devicons",
+        "nvim-telescope/telescope-dap.nvim",
         {
             "nvim-telescope/telescope-fzf-native.nvim",
             build = "make",
@@ -33,7 +34,7 @@ return {
                 borderchars = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
                 color_devicons = true,
                 file_sorter = require("telescope.sorters").get_fuzzy_file,
-                file_ignore_patterns = { "node_modules", "%.uasset" },
+                file_ignore_patterns = { "node_modules", "%.uasset", ".git" },
                 generic_sorter = require("telescope.sorters").get_generic_fuzzy_sorter,
                 set_env = { ["COLORTERM"] = "truecolor" }, -- default = nil,
                 file_previewer = require("telescope.previewers").vim_buffer_cat.new,
@@ -83,5 +84,6 @@ return {
         })
 
         telescope.load_extension("fzf")
+        telescope.load_extension("dap")
     end,
 }

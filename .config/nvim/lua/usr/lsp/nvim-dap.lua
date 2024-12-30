@@ -70,20 +70,47 @@ return {
             local dap = require("dap")
             local dapui = require("dapui")
 
-            dap.listeners.before.attach.dapui_config = function()
-                dapui.open()
-            end
-            dap.listeners.before.launch.dapui_config = function()
-                dapui.open()
-            end
-            -- dap.listeners.before.event_terminated.dapui_config = function()
-            -- 	dapui.close()
-            -- end
-            -- dap.listeners.before.event_exited.dapui_config = function()
-            -- 	dapui.close()
-            -- end
+            vim.api.nvim_create_autocmd("TabClosed", {
+                callback = function(args)
+                    if vim.g.debug_tab_nr and "" .. vim.g.debug_tab_nr == args.file then
+                        vim.g.debug_tab_nr = nil
+                    end
+                end,
+            })
 
-            vim.keymap.set("n", "<F1>", dapui.toggle, { desc = "Toggle debug ui" })
+            local function open_debug_tab()
+                if not vim.g.debug_tab_nr or not pcall(vim.api.nvim_set_current_tabpage, vim.g.debug_tab_nr) then
+                    if vim.api.nvim_buf_get_name(0) == "" then
+                        vim.cmd("tabnew")
+                    else
+                        vim.cmd("tabnew %")
+                    end
+
+                    vim.g.debug_tab_nr = vim.api.nvim_get_current_tabpage()
+                    dapui.open({ reset = true })
+                end
+            end
+
+            local function close_debug_tab()
+                if vim.api.nvim_get_current_tabpage() == vim.g.debug_tab_nr then
+                    vim.cmd("tabclose")
+                    vim.g.debug_tab_nr = nil
+                    return true
+                end
+
+                return false
+            end
+
+            local function toggle_debug_tab()
+                if not close_debug_tab() then
+                    open_debug_tab()
+                end
+            end
+
+            dap.listeners.before.attach.dapui_config = open_debug_tab
+            dap.listeners.before.launch.dapui_config = open_debug_tab
+
+            vim.keymap.set("n", "<F1>", toggle_debug_tab, { desc = "Toggle debug ui" })
 
             dapui.setup({
                 controls = {
@@ -128,7 +155,7 @@ return {
                             },
                         },
                         position = "right",
-                        size = 40,
+                        size = 60,
                     },
                 },
                 mappings = {
@@ -157,7 +184,7 @@ return {
     {
         "theHamsta/nvim-dap-virtual-text",
         lazy = true,
-        enabled = false,
+        enabled = true,
         event = { "VeryLazy" },
         config = function()
             require("nvim-dap-virtual-text").setup({})
