@@ -33,6 +33,6 @@ return {
         -- vim.api.nvim_set_hl(0, "NoicePopupBorder", { bg = colors.mantle, fg = colors.mantle })
         -- vim.api.nvim_set_hl(0, "NoiceCmdlinePopup", { bg = colors.mantle })
         -- vim.api.nvim_set_hl(0, "NoiceCmdlinePopupBorder", { bg = colors.mantle, fg = colors.mantle })
-        -- vim.api.nvim_set_hl(0, "FloatBorder", { bg = colors.mantle, fg = colors.mantle })
+        vim.api.nvim_set_hl(0, "FloatBorder", { bg = colors.mantle, fg = colors.mantle })
     end,
 }

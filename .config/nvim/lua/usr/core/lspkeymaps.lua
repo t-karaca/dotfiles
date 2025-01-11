@@ -1,6 +1,10 @@
 local M = {}
 
 function M.on_attach(client, bufnr)
+    if client.name == "glsl_analyzer" then
+        client.cancel_request = function() end
+    end
+
     local opts = { noremap = true, silent = true }
 
     opts.buffer = bufnr

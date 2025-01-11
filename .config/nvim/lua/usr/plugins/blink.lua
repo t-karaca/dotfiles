@@ -11,8 +11,9 @@ return {
         keymap = {
             preset = "none",
             ["<C-space>"] = { "show", "show_documentation", "hide_documentation" },
-            ["<Tab>"] = { "accept", "snippet_forward", "fallback" },
-            ["<S-Tab>"] = { "snippet_forward", "fallback" },
+            ["<Tab>"] = { "accept", "fallback" },
+            ["<S-Tab>"] = { "snippet_backward", "fallback" },
+            ["<CR>"] = { "snippet_forward", "fallback" },
             ["<C-k>"] = { "select_prev", "fallback" },
             ["<C-j>"] = { "select_next", "fallback" },
             ["<Up>"] = { "select_prev", "fallback" },
@@ -30,9 +31,14 @@ return {
                 },
             },
             list = {
-                selection = function(ctx)
-                    return ctx.mode == "cmdline" and "auto_insert" or "preselect"
-                end,
+                selection = {
+                    preselect = function(ctx)
+                        return ctx.mode ~= "cmdline"
+                    end,
+                    auto_insert = function(ctx)
+                        return ctx.mode == "cmdline"
+                    end,
+                },
             },
             documentation = {
                 auto_show = true,
