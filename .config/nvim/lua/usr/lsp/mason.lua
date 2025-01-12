@@ -48,7 +48,6 @@ return {
                 "cssls",
                 "tailwindcss",
                 "ts_ls",
-                "emmet_ls",
                 "angularls",
             },
             automatic_installation = true,
