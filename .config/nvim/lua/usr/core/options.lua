@@ -44,3 +44,5 @@ vim.opt.swapfile = false
 vim.opt.autoread = true
 
 vim.opt.background = "dark"
+
+vim.g.sass_recommended_style = false

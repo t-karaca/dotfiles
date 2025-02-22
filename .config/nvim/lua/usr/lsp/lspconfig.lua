@@ -43,6 +43,11 @@ return {
         --     on_attach = on_attach,
         -- })
 
+        lspconfig["hyprls"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
         lspconfig["mesonlsp"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
@@ -198,6 +203,11 @@ return {
         })
 
         lspconfig["cssls"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
+        lspconfig["somesass_ls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
         })

@@ -9,6 +9,9 @@ return {
                 "TroubleNormal",
                 "TroubleNormalNC",
             },
+            exclude_groups = {
+                "CursorLine",
+            },
         })
 
         transparent.clear_prefix("BufferLine")
