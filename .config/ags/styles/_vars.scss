@@ -1,0 +1,131 @@
+$white: #e9e9ed;
+$white-25: rgba($white, 0.25);
+$white-50: rgba($white, 0.5);
+$white-75: rgba($white, 0.75);
+$black: #15161e;
+$gray: gray;
+$primary: #0860f2;
+$primary-15: rgba($primary, 0.15);
+$primary-50: rgba($primary, 0.5);
+
+$colors: (
+    "white": $white,
+    "white-25": $white-25,
+    "white-50": $white-50,
+    "white-75": $white-75,
+    "black": $black,
+    "gray": $gray,
+    "primary": $primary,
+    "primary-15": $primary-15,
+    "primary-50": $primary-50,
+);
+
+$bg-body: rgba(30, 30, 46, 0.8);
+$bg-black-25: rgba(0, 0, 0, 0.25);
+$bg-black-50: rgba(0, 0, 0, 0.5);
+$bg-black-75: rgba(0, 0, 0, 0.75);
+$bg-primary: rgba($primary, 1);
+$bg-primary-15: rgba($primary, 0.15);
+$bg-primary-50: rgba($primary, 0.5);
+$bg-transparent: transparent;
+
+$backgrounds: (
+    "body": $bg-body,
+    "black-25": $bg-black-25,
+    "black-50": $bg-black-50,
+    "black-75": $bg-black-75,
+    "primary": $bg-primary,
+    "primary-15": $bg-primary-15,
+    "primary-50": $bg-primary-50,
+    "transparent": $bg-transparent,
+);
+
+$spacer-0: 0;
+$spacer-1: 0.25rem;
+$spacer-2: 0.5rem;
+$spacer-3: 0.75rem;
+$spacer-4: 1rem;
+$spacer-5: 1.25rem;
+$spacer-6: 1.5rem;
+$spacer-7: 1.75rem;
+$spacer-8: 2rem;
+$spacer-9: 2.25rem;
+$spacer-10: 2.5rem;
+$spacer-11: 2.75rem;
+$spacer-12: 3rem;
+
+$spacers: (
+    0: $spacer-0,
+    1: $spacer-1,
+    2: $spacer-2,
+    3: $spacer-3,
+    4: $spacer-4,
+    5: $spacer-5,
+    6: $spacer-6,
+    7: $spacer-7,
+    8: $spacer-8,
+    9: $spacer-9,
+    10: $spacer-10,
+    11: $spacer-11,
+    12: $spacer-12,
+);
+
+$font-size-xs: 0.75rem;
+$font-size-sm: 0.875rem;
+$font-size-md: 1rem;
+$font-size-lg: 1.125rem;
+$font-size-xl: 1.25rem;
+$font-size-2xl: 1.5rem;
+$font-size-3xl: 1.875rem;
+$font-size-4xl: 2.25rem;
+$font-size-5xl: 3rem;
+$font-size-6xl: 3.75rem;
+
+$font-sizes: (
+    xs: $font-size-xs,
+    sm: $font-size-sm,
+    md: $font-size-md,
+    lg: $font-size-lg,
+    xl: $font-size-xl,
+    2xl: $font-size-2xl,
+    3xl: $font-size-3xl,
+    4xl: $font-size-4xl,
+    5xl: $font-size-5xl,
+    6xl: $font-size-6xl,
+);
+
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$font-weights: (
+    light: $font-weight-light,
+    normal: $font-weight-normal,
+    medium: $font-weight-medium,
+    semibold: $font-weight-semibold,
+    bold: $font-weight-bold,
+);
+
+$border-radius-none: 0;
+$border-radius-xs: 0.125rem;
+$border-radius-sm: 0.125rem;
+$border-radius-md: 0.375rem;
+$border-radius-lg: 0.5rem;
+$border-radius-xl: 0.75rem;
+$border-radius-2xl: 1rem;
+$border-radius-full: 9999px;
+
+$border-radiuses: (
+    none: $border-radius-none,
+    xs: $border-radius-xs,
+    sm: $border-radius-sm,
+    md: $border-radius-md,
+    lg: $border-radius-lg,
+    xl: $border-radius-xl,
+    2xl: $border-radius-2xl,
+    full: $border-radius-full,
+);
+
+$launcher-icon-size: 62px;

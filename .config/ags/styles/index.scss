@@ -1,0 +1,253 @@
+@use "vars";
+
+@mixin utilities {
+    @each $name, $value in vars.$spacers {
+        .p-#{$name} {
+            padding: $value;
+        }
+
+        .pl-#{$name} {
+            padding-left: $value;
+        }
+
+        .pr-#{$name} {
+            padding-right: $value;
+        }
+
+        .pt-#{$name} {
+            padding-top: $value;
+        }
+
+        .pb-#{$name} {
+            padding-bottom: $value;
+        }
+
+        .px-#{$name} {
+            padding-left: $value;
+            padding-right: $value;
+        }
+
+        .py-#{$name} {
+            padding-top: $value;
+            padding-bottom: $value;
+        }
+
+        .m-#{$name} {
+            margin: $value;
+        }
+
+        .ml-#{$name} {
+            margin-left: $value;
+        }
+
+        .mr-#{$name} {
+            margin-right: $value;
+        }
+
+        .mt-#{$name} {
+            margin-top: $value;
+        }
+
+        .mb-#{$name} {
+            margin-bottom: $value;
+        }
+
+        .mx-#{$name} {
+            margin-left: $value;
+            margin-right: $value;
+        }
+
+        .my-#{$name} {
+            margin-top: $value;
+            margin-bottom: $value;
+        }
+    }
+
+    @each $name, $value in vars.$colors {
+        .text-#{$name} {
+            color: $value;
+        }
+
+        .hover\:text-#{$name}:hover {
+            color: $value;
+        }
+
+        .focus\:text-#{$name}:focus {
+            color: $value;
+        }
+
+        .active\:text-#{$name}:active {
+            color: $value;
+        }
+
+        .disabled\:text-#{$name}:disabled {
+            color: $value;
+        }
+
+        .group:hover .group-hover\:text-#{$name} {
+            color: $value;
+        }
+
+        .group:focus .group-focus\:text-#{$name} {
+            color: $value;
+        }
+    }
+
+    @each $name, $value in vars.$backgrounds {
+        .bg-#{$name} {
+            background-color: $value;
+        }
+
+        .hover\:bg-#{$name}:hover {
+            background-color: $value;
+        }
+
+        .focus\:bg-#{$name}:focus {
+            background-color: $value;
+        }
+
+        .active\:bg-#{$name}:active {
+            background-color: $value;
+        }
+
+        .disabled\:bg-#{$name}:disabled {
+            background-color: $value;
+        }
+    }
+
+    @each $name, $value in vars.$font-sizes {
+        .font-#{$name} {
+            font-size: $value;
+        }
+    }
+
+    @each $name, $value in vars.$font-weights {
+        .font-#{$name} {
+            font-weight: $value;
+        }
+    }
+
+    @each $name, $value in vars.$border-radiuses {
+        .rounded-#{$name} {
+            border-radius: $value;
+        }
+
+        .rounded-t-#{$name} {
+            border-top-left-radius: $value;
+            border-top-right-radius: $value;
+        }
+
+        .rounded-b-#{$name} {
+            border-bottom-left-radius: $value;
+            border-bottom-right-radius: $value;
+        }
+
+        .rounded-l-#{$name} {
+            border-top-left-radius: $value;
+            border-bottom-left-radius: $value;
+        }
+
+        .rounded-r-#{$name} {
+            border-top-right-radius: $value;
+            border-bottom-right-radius: $value;
+        }
+    }
+
+    .shadow-none {
+        box-shadow: none;
+    }
+}
+
+label {
+    text-shadow: none;
+}
+
+icon {
+    -gtk-icon-shadow: none;
+}
+
+window {
+    color: vars.$white;
+    text-shadow: none;
+}
+
+progressbar {
+    trough {
+        background-color: vars.$white-25;
+        min-height: 0px;
+    }
+
+    progress {
+        background-color: vars.$white;
+        min-height: 6px;
+    }
+
+    &.disabled {
+        progress {
+            background-color: vars.$gray;
+        }
+    }
+}
+
+.osd-icon {
+    font-size: 24px;
+}
+
+.launcher-icon {
+    font-size: vars.$launcher-icon-size;
+}
+
+.btn-close {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background-color: vars.$bg-transparent;
+    background-image: none;
+    box-shadow: none;
+    border-radius: vars.$border-radius-full;
+    color: vars.$white;
+    font-size: vars.$font-size-sm;
+
+    &:hover {
+        background-color: vars.$white-25;
+    }
+}
+
+.action-list {
+    &.action-list--rounded-first {
+        .action-list__item:first-child {
+            border-top-left-radius: vars.$border-radius-xl;
+            border-top-right-radius: vars.$border-radius-xl;
+        }
+    }
+
+    &.action-list--rounded-last {
+        .action-list__item:last-child {
+            border-bottom-left-radius: vars.$border-radius-xl;
+            border-bottom-right-radius: vars.$border-radius-xl;
+        }
+    }
+}
+
+.action-list__item {
+    background-color: vars.$bg-transparent;
+    background-image: none;
+    box-shadow: none;
+    border-radius: 0;
+    border: 0;
+    color: vars.$white;
+    outline: 0;
+
+    font-size: vars.$font-size-xl;
+    font-weight: vars.$font-weight-normal;
+    padding: vars.$spacer-4 vars.$spacer-6;
+}
+
+.action-list__item:focus {
+    background-color: vars.$bg-primary;
+    color: vars.$white;
+}
+
+@include utilities();
