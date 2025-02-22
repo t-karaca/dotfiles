@@ -2,6 +2,7 @@
 
 alias l="eza --icons=always -la"
 alias la="l"
+alias ll="l -T"
 
 alias se="sudoedit"
 
@@ -134,4 +135,8 @@ alias tl="tldr --list | fzf --preview 'tldr {} --color always' | xargs tldr"
 
 if command -v go-task >/dev/null 2>&1; then
     alias task="go-task"
+fi
+
+if command -v xdg-open >/dev/null 2>&1; then
+    alias open="xdg-open"
 fi
