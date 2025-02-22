@@ -14,11 +14,11 @@ fi
 
 timedatectl set-timezone Europe/Berlin
 
-yay -Sy --needed archlinux-keyring
-yay -Syu
+yay -Sy --needed --noconfirm --sudoloop archlinux-keyring
+yay -Syu --noconfirm --sudoloop
 
 # yay -S --needed hyprwayland-scanner-git
-yay -S --needed \
+yay -S --needed --sudoloop --noconfirm \
     nvidia-dkms \
     linux \
     linux-headers \
@@ -106,7 +106,7 @@ yay -S --needed \
     helm \
     cilium-cli \
     k3d \
-    go-task-bin \
+    go-task \
     kubeseal \
     noto-fonts-emoji \
     noto-fonts \
@@ -172,54 +172,39 @@ yay -S --needed \
     mpv \
     gcolor3 \
     valgrind \
-    bat \
-    git-delta
+    git-delta \
+    vulkan-devel \
+    tree-sitter-cli \
+    grimblast-git \
+    evince \
+    hyprshot \
+    sane \
+    sane-airscan \
+    simple-scan \
+    cups \
+    nautilus \
+    wayfreeze-git \
+    satty
 
-if [ "1" = "0" ]; then
-    yay -S --needed \
-        lib32-nvidia-utils \
-        lib32-alsa-lib \
-        lib32-alsa-plugins \
-        lib32-libpulse \
-        lib32-pipewire \
-        steam \
-        bottles \
-        wine
-fi
-
-if [ "1" = "0" ]; then
-    yay -S --needed \
-        texlive-basic \
-        texlive-latex \
-        texlive-latexrecommended \
-        texlive-latexextra \
-        texlive-fontsrecommended \
-        texlive-plaingeneric \
-        texlive-bibtexextra \
-        texlive-mathscience \
-        texlive-xetex \
-        texlive-binextra \
-        texlive-langgerman \
-        biber
-fi
-
-# curl https://fedoraproject.org/fedora.gpg | gpg --import
-# yay -S butane-bin
-
-mise use -g node@20
+# mise use -g node@20
 mise use -g java@corretto-17
-mise use -g go@1.21
-mise use -g rust
+# mise use -g go@1.21
+# mise use -g rust
 mise use -g usage
+
+# yay -S --sudoloop --noconfirm
 
 chsh -s $(which zsh)
 
 sudo usermod -aG docker "$USER"
 sudo usermod -aG wireshark "$USER"
+sudo usermod -aG disk "$USER"
 
-sudo systemctl enable --now sddm.service
 sudo systemctl enable --now libvirtd.socket
 sudo systemctl enable --now docker.socket
+sudo systemctl enable --now cups.socket
+sudo systemctl enable --now avahi-daemon.socket
+sudo systemctl enable --now sddm.service
 # sudo systemctl enable --now swayosd-libinput-backend.service
 sudo systemctl enable --now seatd
 
@@ -230,14 +215,11 @@ sudo systemctl enable nvidia-resume.service
 sudo ln -s /usr/bin/alacritty /usr/bin/xterm
 # sudo ln -s /usr/bin/go-task /usr/bin/task
 
+# yay -S --sudoloop --noconfirm firewalld
+
+sudo systemctl enable --now firewalld.service
+
+sudo firewall-cmd --permanent --add-service=sane
+sudo firewall-cmd --permanent --add-service=mdns
+
 git-credential-manager configure
-
-if ! command -v grimblast >/dev/null; then
-    git clone https://github.com/hyprwm/contrib.git
-    cd contrib/grimblast
-
-    sudo make install
-
-    cd ../..
-    rm -rf contrib
-fi

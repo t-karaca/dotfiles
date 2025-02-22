@@ -1,0 +1,96 @@
+[
+    {
+        "layer": "background",
+        "reload_style_on_change": true,
+        "output": "HDMI-A-1",
+        "position": "top",
+        "mod": "dock",
+        "exclusive": true,
+        "passthrough": false,
+        "gtk-layer-shell": true,
+        "height": 40,
+        "modules-left": [
+            "custom/power"
+        ],
+        "modules-center": [
+            "hyprland/workspaces"
+        ],
+        "modules-right": [
+            "privacy",
+            "wireplumber",
+            "tray",
+            "clock#date",
+            "clock#time"
+        ],
+        "privacy": {
+            "icon-spacing": 10,
+            "icon-size": 14
+        },
+        "tray": {
+            "icon-size": 16,
+            "spacing": 8
+        },
+        "clock#time": {
+            "interval": 1,
+            "format": "{:%H:%M:%S}",
+            "tooltip": false
+        },
+        "clock#date": {
+            "interval": 1,
+            "format": "{:%a. %d. %b}",
+            "tooltip": false
+        },
+        "wireplumber": {
+            "format": "{icon}    {volume}%",
+            "format-muted": "    {volume}%",
+            "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+            "on-click-right": "pavucontrol",
+            "scroll-step": 5.0,
+            "max-volume": 140,
+            "format-icons": [
+                "",
+                "",
+                ""
+            ]
+        },
+        "hyprland/workspaces": {
+            "active-only": false
+        },
+        "custom/power": {
+            "format": "󰣇",
+            "on-click": "ags toggle powermenu",
+            "tooltip": false
+        }
+    },
+    {
+        "layer": "background",
+        "output": "!HDMI-A-1",
+        "position": "top",
+        "mod": "dock",
+        "exclusive": true,
+        "passthrough": false,
+        "gtk-layer-shell": true,
+        "height": 40,
+        "modules-left": [],
+        "modules-center": [
+            "hyprland/workspaces"
+        ],
+        "modules-right": [
+            "clock#date",
+            "clock#time"
+        ],
+        "clock#time": {
+            "interval": 1,
+            "format": "{:%H:%M:%S}",
+            "tooltip": false
+        },
+        "clock#date": {
+            "interval": 1,
+            "format": "{:%a. %d. %b}",
+            "tooltip": false
+        },
+        "hyprland/workspaces": {
+            "active-only": false
+        }
+    }
+]

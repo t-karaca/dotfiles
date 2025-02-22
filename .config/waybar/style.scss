@@ -1,6 +1,13 @@
+$white: #e9e9ed;
+$white-80: rgba(233, 233, 237, 0.8);
+$black: #15161e;
+
+$bg-body: rgba(30, 30, 46, 0.45);
+$bg-body--hover: rgba(255, 255, 255, 0.1);
+
 window#waybar {
   background: none;
-  color: #e9e9ed;
+  color: $white;
   font-family: Ubuntu Nerd Font;
   font-weight: 500;
   font-size: 14px;
@@ -10,9 +17,10 @@ window#waybar {
   margin-left: 10px;
   margin-left: 4px;
   margin-left: 0;
-}
-.modules-left .module {
-  margin-right: 8px;
+
+  .module {
+    margin-right: 8px;
+  }
 }
 
 .modules-right {
@@ -23,35 +31,42 @@ window#waybar {
   /* background-color: $bg-body; */
   /* border-bottom-left-radius: 9999px; */
   /* border-top-left-radius: 9999px; */
-}
-.modules-right .module {
-  margin-left: 8px;
+
+  .module {
+    margin-left: 8px;
+  }
 }
 
 #workspaces {
   border-radius: 9999px;
   padding: 0px 4px;
   margin: 4px 0;
-  background-color: rgba(30, 30, 46, 0.45);
-}
-#workspaces button {
-  border-radius: 9999px;
-  padding: 0px 6px;
-  margin: 4px 2px;
-  font-size: 12px;
-  transition: 100ms;
-  border: 0;
-  color: rgba(233, 233, 237, 0.8);
-}
-#workspaces button:hover {
-  box-shadow: inherit;
-  text-shadow: inherit;
-  border: 0;
-  background: rgba(255, 255, 255, 0.1);
-}
-#workspaces button.active {
-  background: #e9e9ed;
-  color: #15161e;
+
+  background-color: $bg-body;
+
+  button {
+    border-radius: 9999px;
+    padding: 0px 6px;
+    margin: 4px 2px;
+    font-size: 12px;
+    transition: 100ms;
+    border: 0;
+
+    color: $white-80;
+
+    &:hover {
+      box-shadow: inherit;
+      text-shadow: inherit;
+      border: 0;
+
+      background: $bg-body--hover;
+    }
+
+    &.active {
+      background: $white;
+      color: $black;
+    }
+  }
 }
 
 #privacy {
@@ -69,18 +84,20 @@ window#waybar {
   margin: 4px 0;
   border-width: 1px;
   border-style: solid;
-}
-#privacy-item.audio-in {
-  background: #d98f00;
-  border-color: #805400;
-}
-#privacy-item.screenshare {
-  background: #0078d9;
-  border-color: #004780;
+
+  &.audio-in {
+    background: #d98f00;
+    border-color: #805400;
+  }
+
+  &.screenshare {
+    background: #0078d9;
+    border-color: #004780;
+  }
 }
 
 #wireplumber {
-  background-color: rgba(30, 30, 46, 0.45);
+  background-color: $bg-body;
   border-radius: 9999px;
   padding: 0 16px;
   margin-top: 4px;
@@ -88,13 +105,14 @@ window#waybar {
   font-size: 12px;
   transition: 100ms;
   /* background-color: transparent; */
-}
-#wireplumber:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+
+  &:hover {
+    background-color: $bg-body--hover;
+  }
 }
 
 #tray {
-  background-color: rgba(30, 30, 46, 0.45);
+  background-color: $bg-body;
   /* background-color: transparent; */
   border-radius: 9999px;
   padding: 0px 16px;
@@ -103,7 +121,7 @@ window#waybar {
 }
 
 #custom-power {
-  background-color: rgba(30, 30, 46, 0.45);
+  background-color: $bg-body;
   border-radius: 9999px;
   border-radius: 0;
   border-bottom-right-radius: 9999px;
@@ -113,9 +131,10 @@ window#waybar {
   margin: 0;
   transition: 100ms;
   padding-right: 20px;
-}
-#custom-power:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+
+  &:hover {
+    background-color: $bg-body--hover;
+  }
 }
 
 #clock.date {
@@ -129,7 +148,8 @@ window#waybar {
   margin-bottom: 0;
   margin-right: 0px;
   padding-left: 20px;
-  background-color: rgba(30, 30, 46, 0.45);
+
+  background-color: $bg-body;
   /* background-color: transparent; */
 }
 
@@ -142,6 +162,7 @@ window#waybar {
   margin-bottom: 4px;
   margin: 0;
   margin-left: 0;
-  background-color: rgba(30, 30, 46, 0.45);
+
+  background-color: $bg-body;
   /* background-color: transparent; */
 }

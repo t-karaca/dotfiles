@@ -1,0 +1,142 @@
+@import "mocha.css";
+
+* {
+  border: none;
+  border-radius: 0;
+  /* font-family: MesloLGS Nerd Font Mono; */
+  font-family: Ubuntu Nerd Font;
+  /* font-family: SF Compact; */
+  /* font-family: Cantarell; */
+  font-weight: 500;
+  font-size: 14px;
+  min-height: 0;
+}
+
+window#waybar {
+  /* background: alpha(#000000, 0.1); */
+  background: #3412b1;
+  /* background: #3e2bc2; */
+  /* background: #3a1172; */
+  /* background: #6f2574; */
+  /* background: #903f8e; */
+  color: @text;
+}
+
+tooltip {
+  background: @mantle;
+  border-radius: 10px;
+}
+
+#workspaces button {
+  /* color: @surface2; */
+  padding: 0 10px;
+  color: @subtext0;
+  border-radius: 10px;
+}
+
+#workspaces button.active {
+  color: @text;
+  background: alpha(#ffffff, 0.2);
+}
+
+#clock.time {
+  margin-left: 10px;
+  /* margin-right: 12px; */
+}
+
+#clock.date {
+  /* margin-left: 30px; */
+}
+
+#cpu {
+  padding: 0 10px;
+}
+
+#memory {
+  padding: 0 10px;
+}
+
+#disk {
+  padding: 0 10px;
+}
+
+#network {
+  margin-left: 26px;
+  margin-right: 26px;
+  padding: 0 10px;
+}
+
+#wireplumber {
+  /* min-width: 60px; */
+  padding: 0 10px;
+  border-radius: 10px;
+  transition-property: background;
+  transition-duration: 100ms;
+  transition-timing-function: linear;
+}
+
+#wireplumber:hover {
+  background: alpha(#ffffff, 0.2);
+}
+
+#custom-spotify {
+  margin-left: 26px;
+  padding: 0 10px;
+}
+
+#tray {
+  margin-right: 18px;
+  margin-left: 26px;
+}
+
+#custom-power {
+  /* margin-right: 12px; */
+  padding: 0 10px;
+  border-radius: 10px;
+  transition-property: background;
+  transition-duration: 100ms;
+  transition-timing-function: linear;
+}
+
+#custom-power:hover {
+  background: alpha(#ffffff, 0.2);
+}
+
+#custom-tunnel {
+  padding: 0 10px;
+  font-size: 16px;
+  border-radius: 10px;
+  transition-property: background;
+  transition-duration: 100ms;
+  transition-timing-function: linear;
+}
+
+#custom-tunnel.disconnected {
+  opacity: 0.5;
+}
+
+#custom-tunnel:hover {
+  background: alpha(#ffffff, 0.2);
+}
+
+#privacy {
+  margin-left: 30px;
+}
+
+#privacy-item {
+  min-width: 50px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  margin-right: 0px;
+  background: black;
+  border-radius: 6px;
+  /* padding: 0 10px; */
+}
+
+#privacy-item.audio-in {
+  background: orange;
+}
+
+#privacy-item.screenshare {
+  background: blue;
+}

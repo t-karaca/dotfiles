@@ -1,180 +1,62 @@
-[
-  {
-    "layer": "top",
-    "output": "HDMI-A-1",
+{
+    "layer": "background",
+    "reload_style_on_change": true,
     "position": "top",
     "mod": "dock",
     "exclusive": true,
     "passthrough": false,
     "gtk-layer-shell": true,
-    "height": 35,
+    "height": 40,
     "modules-left": [
-      "hyprland/workspaces",
-      "custom/tunnel",
-      "privacy"
+        "custom/power"
     ],
     "modules-center": [
-      "hyprland/window"
+        "hyprland/workspaces"
     ],
     "modules-right": [
-      "cpu",
-      "memory",
-      "disk",
-      "network",
-      // "custom/spotify",
-      "wireplumber",
-      "clock#date",
-      "clock#time",
-      "tray",
-      "custom/power"
+        "privacy",
+        "wireplumber",
+        "tray",
+        "clock#date",
+        "clock#time"
     ],
     "privacy": {
-      "icon-spacing": 12
-    },
-    "cpu": {
-      "interval": 10,
-      "format": "{}% ",
-      "max-length": 10
-    },
-    "memory": {
-      "interval": 10,
-      // "format": "{used:0.1f}G/{total:0.1f}G "
-      // "format": "{used:0.1f}G "
-      "format": "{used:0.1f}G ",
-      "tooltip-format": "Memory: {used:0.1f}G/{total:0.1f}G\nSwap: {swapUsed:0.1f}G/{swapTotal:0.1f}G"
-    },
-    "disk": {
-      "interval": 30,
-      "format": "{free} 󰋊",
-      "path": "/"
-    },
-    "hyprland/window": {
-      "format": "{}"
+        "icon-spacing": 10,
+        "icon-size": 14
     },
     "tray": {
-      "icon-size": 18,
-      "spacing": 10
-    },
-    "clock": {
-      "interval": 1,
-      // "format": "{:   %H:%M:%S   |       %d.%m.%Y}",
-      // "format": "{:%H:%M:%S   |   %d.%m.%Y}",
-      "format": "{:%H:%M:%S\t%d. %b %Y}",
-      "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+        "icon-size": 16,
+        "spacing": 8
     },
     "clock#time": {
-      "interval": 1,
-      "format": "{:%H:%M:%S}",
-      "tooltip": false
+        "interval": 1,
+        "format": "{:%H:%M:%S}",
+        "tooltip": false
     },
     "clock#date": {
-      "interval": 1,
-      "format": "{:%a. %d. %b}",
-      "tooltip": false
-    },
-    "temperature": {
-      // "thermal-zone": 1,
-      "format": "{temperatureC}°C ",
-      // "critical-threshold": 80,
-      // "format-critical": "{temperatureC}°C "
-    },
-    "network": {
-      // "interface": "wlp2*", // (Optional) To force the use of this interface
-      "format-wifi": "  {signalStrength}%",
-      "format-ethernet": "{bandwidthDownBytes}    {bandwidthUpBytes} ",
-      "tooltip-format": "{essid} - {ifname} via {gwaddr}",
-      "tooltip-format-ethernet": "{ifname} - {ipaddr} via {gwaddr}",
-      "format-linked": "{ifname} (No IP)",
-      "format-disconnected": "Disconnected ⚠"
-    },
-    "bluetooth": {
-      "format": " {status}",
-      "format-disabled": "", // an empty format will hide the module
-      "format-connected": " {num_connections}",
-      "tooltip-format": "{device_alias}",
-      "tooltip-format-connected": " {device_enumerate}",
-      "tooltip-format-enumerate-connected": "{device_alias}"
+        "interval": 1,
+        "format": "{:%a. %d. %b}",
+        "tooltip": false
     },
     "wireplumber": {
-      "format": "{icon}    {volume}%",
-      "format-muted": "    {volume}%",
-      "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
-      "scroll-step": 5.0,
-      "max-volume": 140,
-      "format-icons": [
-        "",
-        "",
-        ""
-      ]
+        "format": "{icon}    {volume}%",
+        "format-muted": "    {volume}%",
+        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-click-right": "pavucontrol",
+        "scroll-step": 5.0,
+        "max-volume": 140,
+        "format-icons": [
+            "",
+            "",
+            ""
+        ]
     },
     "hyprland/workspaces": {
-      "active-only": false
+        "active-only": false
     },
     "custom/power": {
-      "format": "",
-      "on-click": "pgrep wofi > /dev/null && pkill -9 wofi || $HOME/.config/waybar/powermenu.lua",
-      "tooltip": false
-    },
-    "custom/spotify": {
-      "format": "    {}",
-      "escape": true,
-      "return-type": "json",
-      "on-click": "playerctl -p spotify play-pause",
-      "on-scroll-up": "playerctl -p spotify next",
-      "on-scroll-down": "playerctl -p spotify previous",
-      "exec": "$HOME/.config/waybar/mediaplayer.py --player spotify",
-      "exec-if": "pgrep spotify"
-    },
-    "custom/tunnel": {
-      "format": "{}",
-      "return-type": "json",
-      "exec": "$HOME/.config/waybar/tunnel.sh --status",
-      "interval": 5,
-      "on-click": "$HOME/.config/waybar/tunnel.sh",
-      "on-click-right": "$HOME/.config/waybar/tunnel.sh --disconnect"
+        "format": "󰣇",
+        "on-click": "ags toggle powermenu",
+        "tooltip": false
     }
-  },
-  {
-    "layer": "top",
-    "output": "!HDMI-A-1",
-    "position": "top",
-    "mod": "dock",
-    "exclusive": true,
-    "passthrough": false,
-    "gtk-layer-shell": true,
-    "height": 35,
-    "modules-left": [
-      "hyprland/workspaces"
-    ],
-    "modules-center": [
-      "hyprland/window"
-    ],
-    "modules-right": [
-      "clock#date",
-      "clock#time"
-    ],
-    "hyprland/window": {
-      "format": "{}"
-    },
-    "clock": {
-      "interval": 1,
-      // "format": "{:   %H:%M:%S   |       %d.%m.%Y}",
-      // "format": "{:%H:%M:%S   |   %d.%m.%Y}",
-      "format": "{:%H:%M:%S\t%d.%m.%Y}",
-      "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
-    },
-    "clock#time": {
-      "interval": 1,
-      "format": "{:%H:%M:%S}",
-      "tooltip": false
-    },
-    "clock#date": {
-      "interval": 1,
-      "format": "{:%d. %b %Y}",
-      "tooltip": false
-    },
-    "hyprland/workspaces": {
-      "active-only": false
-    }
-  }
-]
+}
