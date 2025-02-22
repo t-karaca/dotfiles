@@ -16,6 +16,7 @@ setopt hist_ignore_dups
 setopt hist_find_no_dups
 setopt INC_APPEND_HISTORY_TIME
 setopt globdots
+unsetopt BEEP
 
 bindkey -v
 bindkey '\ej' history-search-forward
