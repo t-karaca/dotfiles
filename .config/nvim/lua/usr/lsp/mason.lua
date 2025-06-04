@@ -23,6 +23,7 @@ return {
         })
 
         mason_lspconfig.setup({
+            automatic_enable = false,
             ensure_installed = {
                 -- Backend
                 "gopls",

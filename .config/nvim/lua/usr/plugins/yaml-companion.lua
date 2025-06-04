@@ -1,7 +1,7 @@
 return {
     "someone-stole-my-name/yaml-companion.nvim",
-    lazy = true,
-    enabled = true,
+    lazy = false,
+    enabled = false,
     dependencies = {
         "nvim-lua/plenary.nvim",
         "nvim-telescope/telescope.nvim",

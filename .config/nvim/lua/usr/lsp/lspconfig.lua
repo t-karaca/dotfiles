@@ -6,7 +6,8 @@ return {
         { "antosha417/nvim-lsp-file-operations", config = true },
         "b0o/schemastore.nvim",
         "williamboman/mason.nvim",
-        "someone-stole-my-name/yaml-companion.nvim",
+        -- "someone-stole-my-name/yaml-companion.nvim",
+        "cenk1cenk2/schema-companion.nvim",
     },
     config = function()
         local lspconfig = require("lspconfig")
@@ -43,6 +44,16 @@ return {
         --     on_attach = on_attach,
         -- })
 
+        lspconfig["buf_ls"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
+        lspconfig["neocmake"].setup({
+            capabilities = capabilities,
+            on_attach = on_attach,
+        })
+
         lspconfig["hyprls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
@@ -56,6 +67,8 @@ return {
         lspconfig["clangd"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
+            cmd = { "clangd", "--clang-tidy" },
+            filetypes = { "c", "cpp" },
         })
 
         lspconfig["lemminx"].setup({
@@ -112,6 +125,19 @@ return {
         lspconfig["helm_ls"].setup({
             capabilities = capabilities,
             on_attach = on_attach,
+            settings = {
+                ["helm-ls"] = {
+                    logLevel = "debug",
+                    yamlls = {
+                        config = {
+                            schemas = {
+                                kubernetes = "templates/**",
+                                -- ["https://raw.githubusercontent.com/datreeio/CRDs-catalog/refs/heads/main/argoproj.io/application_v1alpha1.json"] = "templates/application.yaml",
+                            },
+                        },
+                    },
+                },
+            },
         })
 
         lspconfig["texlab"].setup({
@@ -125,20 +151,37 @@ return {
             root_dir = lspconfig.util.root_pattern("angular.json", "nx.json", "package.json"),
         })
 
-        local yamlCfg = require("yaml-companion").setup({
-            schemas = require("schemastore").yaml.schemas(),
-            lspconfig = {
-                capabilities = capabilities,
-                on_attach = on_attach,
-                settings = {
-                    redhat = { telemetry = { enabled = false } },
-                    yaml = {
-                        schemaStore = {
-                            enable = false,
-                            url = "",
-                        },
-                        schemas = require("schemastore").yaml.schemas(),
+        -- local schemas = {}
+        --
+        -- schemas["kubernetes"] = "*.yaml"
+        --
+        -- for key, value in ipairs(require("schemastore").yaml.schemas()) do
+        --     schemas[key] = value
+        -- end
+
+        -- local yamlCfg = require("yaml-companion").setup({
+        --     schemas = require("schemastore").yaml.schemas(),
+        --     lspconfig = {
+        --         capabilities = capabilities,
+        --         on_attach = on_attach,
+        --         settings = {
+        --             redhat = { telemetry = { enabled = false } },
+        --             schemas = require("schemastore").yaml.schemas(),
+        --         },
+        --     },
+        -- })
+
+        local yamlCfg = require("schema-companion").setup_client({
+            capabilities = capabilities,
+            on_attach = on_attach,
+            settings = {
+                redhat = { telemetry = { enabled = false } },
+                yaml = {
+                    schemaStore = {
+                        enable = false,
+                        url = "",
                     },
+                    schemas = require("schemastore").yaml.schemas(),
                 },
             },
         })
@@ -150,6 +193,7 @@ return {
         --     on_attach = on_attach,
         --     settings = {
         --         yaml = {
+        --             redhat = { telemetry = { enabled = false } },
         --             schemaStore = {
         --                 -- You must disable built-in schemaStore support if you want to use
         --                 -- this plugin and its advanced options like `ignore`.
@@ -157,33 +201,52 @@ return {
         --                 -- Avoid TypeError: Cannot read properties of undefined (reading 'length')
         --                 url = "",
         --             },
-        --             schemas = require("schemastore").yaml.schemas(),
+        --             -- schemas = require("schemastore").yaml.schemas(),
+        --             schemas = {
+        --                 kubernetes = "*.yaml",
+        --                 ["https://raw.githubusercontent.com/datreeio/CRDs-catalog/refs/heads/main/argoproj.io/application_v1alpha1.json"] = "xdd/application.yaml",
+        --             },
         --         },
         --     },
         -- })
 
         -- lspconfig["yamlls"].setup({
-        -- 	capabilities = capabilities,
-        -- 	on_attach = on_attach,
-        -- 	-- settings = {
-        -- 	-- 	yaml = {
-        -- 	-- 		schemas = {
-        -- 	-- 			kubernetes = "*.yaml",
-        -- 	-- 			["http://json.schemastore.org/github-workflow"] = ".github/workflows/*",
-        -- 	-- 			["http://json.schemastore.org/github-action"] = ".github/action.{yml,yaml}",
-        -- 	-- 			["http://json.schemastore.org/ansible-stable-2.9"] = "roles/tasks/*.{yml,yaml}",
-        -- 	-- 			["http://json.schemastore.org/prettierrc"] = ".prettierrc.{yml,yaml}",
-        -- 	-- 			["http://json.schemastore.org/kustomization"] = "kustomization.{yml,yaml}",
-        -- 	-- 			["http://json.schemastore.org/ansible-playbook"] = "*play*.{yml,yaml}",
-        -- 	-- 			["http://json.schemastore.org/chart"] = "Chart.{yml,yaml}",
-        -- 	-- 			["https://json.schemastore.org/dependabot-v2"] = ".github/dependabot.{yml,yaml}",
-        -- 	-- 			["https://json.schemastore.org/gitlab-ci"] = "*gitlab-ci*.{yml,yaml}",
-        -- 	-- 			["https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/schemas/v3.1/schema.json"] = "*api*.{yml,yaml}",
-        -- 	-- 			["https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json"] = "*docker-compose*.{yml,yaml}",
-        -- 	-- 			["https://raw.githubusercontent.com/argoproj/argo-workflows/master/api/jsonschema/schema.json"] = "*flow*.{yml,yaml}",
-        -- 	-- 		},
-        -- 	-- 	},
-        -- 	-- },
+        --     capabilities = capabilities,
+        --     on_attach = on_attach,
+        --     settings = {
+        --         yaml = {
+        --             redhat = { telemetry = { enabled = false } },
+        --             schemaStore = {
+        --                 enable = false,
+        --                 url = "",
+        --             },
+        --             schemas = schemas,
+        --         },
+        --     },
+        -- })
+
+        -- lspconfig["yamlls"].setup({
+        --     capabilities = capabilities,
+        --     on_attach = on_attach,
+        --     settings = {
+        --         yaml = {
+        --             schemas = {
+        --                 kubernetes = "*.yaml",
+        --                 ["http://json.schemastore.org/github-workflow"] = ".github/workflows/*",
+        --                 ["http://json.schemastore.org/github-action"] = ".github/action.{yml,yaml}",
+        --                 ["http://json.schemastore.org/ansible-stable-2.9"] = "roles/tasks/*.{yml,yaml}",
+        --                 ["http://json.schemastore.org/prettierrc"] = ".prettierrc.{yml,yaml}",
+        --                 ["http://json.schemastore.org/kustomization"] = "kustomization.{yml,yaml}",
+        --                 ["http://json.schemastore.org/ansible-playbook"] = "*play*.{yml,yaml}",
+        --                 ["http://json.schemastore.org/chart"] = "Chart.{yml,yaml}",
+        --                 ["https://json.schemastore.org/dependabot-v2"] = ".github/dependabot.{yml,yaml}",
+        --                 ["https://json.schemastore.org/gitlab-ci"] = "*gitlab-ci*.{yml,yaml}",
+        --                 ["https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/schemas/v3.1/schema.json"] = "*api*.{yml,yaml}",
+        --                 ["https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json"] = "*docker-compose*.{yml,yaml}",
+        --                 ["https://raw.githubusercontent.com/argoproj/argo-workflows/master/api/jsonschema/schema.json"] = "*flow*.{yml,yaml}",
+        --             },
+        --         },
+        --     },
         -- })
 
         lspconfig["html"].setup({

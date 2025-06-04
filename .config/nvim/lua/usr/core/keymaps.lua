@@ -12,13 +12,19 @@ vim.keymap.set("n", "<leader>fb", "<cmd>Telescope buffers<CR>", { desc = "Find b
 vim.keymap.set("n", "<leader>fh", "<cmd>Telescope help_tags<CR>", { desc = "Find help" })
 vim.keymap.set("n", "<leader>fo", "<cmd>Telescope oldfiles<CR>", { desc = "Find recently opened files" })
 vim.keymap.set("n", "<leader>ft", "<cmd>Telescope filetypes<CR>", { desc = "Set filetype" })
-vim.keymap.set("n", "<leader>fy", "<cmd>Telescope yaml_schema<CR>", { desc = "Set yaml schema" })
+-- vim.keymap.set("n", "<leader>fy", "<cmd>Telescope yaml_schema<CR>", { desc = "Set yaml schema" })
 vim.keymap.set(
     "n",
     "<leader>fs",
     "<cmd>Telescope lsp_dynamic_workspace_symbols<CR>",
     { desc = "Dynamic workspace symbols" }
 )
+
+vim.keymap.set("n", "gK", function()
+    local new_config = not vim.diagnostic.config().virtual_lines
+    local text = not vim.diagnostic.config().virtual_text
+    vim.diagnostic.config({ virtual_lines = new_config, virtual_text = text })
+end)
 
 vim.keymap.set("n", "<leader>bd", "<cmd>bp <bar>bd #<CR>", { desc = "Close current buffer" })
 
@@ -34,8 +40,8 @@ vim.keymap.set("n", "n", "nzzzv", { desc = "Next occurrence" })
 vim.keymap.set("n", "N", "Nzzzv", { desc = "Previous occurrence" })
 
 vim.keymap.set("i", "<C-c>", "<Esc>")
-vim.keymap.set("i", "jj", "<Esc>")
-vim.keymap.set("i", "kj", "<Esc>")
+-- vim.keymap.set("i", "jj", "<Esc>")
+-- vim.keymap.set("i", "kj", "<Esc>")
 
 vim.keymap.set("x", "<leader>p", '"_dP')
 vim.keymap.set({ "n", "v" }, "<C-p>", '"+p', { desc = "Paste from system clipboard" })

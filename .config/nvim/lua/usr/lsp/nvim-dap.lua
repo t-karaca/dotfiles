@@ -55,7 +55,7 @@ return {
             require("dap.ext.vscode").load_launchjs(".vscode/launch.json")
             require("dap.ext.vscode").load_launchjs(".vscode/launch-private.json")
 
-            vim.keymap.set("n", "<leader>rp", dap.continue, { desc = "Pick debug configuration" })
+            vim.keymap.set("n", "<leader>rr", dap.continue, { desc = "Pick debug configuration" })
             vim.keymap.set("n", "<leader>rl", dap.run_last, { desc = "Run last debug session" })
         end,
     },
@@ -107,10 +107,17 @@ return {
                 end
             end
 
+            local function reset_debug_tab()
+                if vim.api.nvim_get_current_tabpage() == vim.g.debug_tab_nr then
+                    dapui.open({ reset = true })
+                end
+            end
+
             dap.listeners.before.attach.dapui_config = open_debug_tab
             dap.listeners.before.launch.dapui_config = open_debug_tab
 
             vim.keymap.set("n", "<F1>", toggle_debug_tab, { desc = "Toggle debug ui" })
+            vim.keymap.set("n", "<F2>", reset_debug_tab, { desc = "Reset debug ui layout" })
 
             dapui.setup({
                 controls = {

@@ -6,16 +6,22 @@ return {
         local lint = require("lint")
 
         lint.linters_by_ft = {
-            javascript = { "eslint_d" },
-            typescript = { "eslint_d" },
-            javascriptreact = { "eslint_d" },
-            typescriptreact = { "eslint_d" },
-            svelte = { "eslint_d" },
+            -- javascript = { "eslint_d" },
+            -- typescript = { "eslint_d" },
+            -- javascriptreact = { "eslint_d" },
+            -- typescriptreact = { "eslint_d" },
+            -- svelte = { "eslint_d" },
             bash = { "shellcheck" },
             sh = { "shellcheck" },
             go = { "golangcilint" },
             dockerfile = { "hadolint" },
+            -- cpp = { "clangtidy" },
         }
+
+        -- lint.linters.clangtidy.args = {
+        --     "-p",
+        --     "build",
+        -- }
 
         local lint_augroup = vim.api.nvim_create_augroup("lint", { clear = true })
 

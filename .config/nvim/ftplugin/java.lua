@@ -1,21 +1,14 @@
 local jdtls = require("jdtls")
-local mason_registry = require("mason-registry")
-local jdtls_dir = mason_registry.get_package("jdtls"):get_install_path()
-local lombok_jar = jdtls_dir .. "/lombok.jar"
+local lombok_jar = vim.fn.expand("$MASON/share/jdtls/lombok.jar")
 
 local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":p:h:t")
-local workspace_dir = vim.loop.os_homedir() .. "/.jdtls/" .. project_name
+local workspace_dir = vim.fn.expand("$HOME/.jdtls/") .. project_name
 
 local on_attach = require("usr.core.lspkeymaps").on_attach
 
-local debug_adapter_dir = mason_registry.get_package("java-debug-adapter"):get_install_path()
-local test_dir = mason_registry.get_package("java-test"):get_install_path()
+local bundles = vim.fn.glob("$MASON/share/java-debug-adapter/com.microsoft.java.debug.plugin-*.jar", false, true)
 
-local bundles = {
-    vim.fn.glob(debug_adapter_dir .. "/extension/server/com.microsoft.java.debug.plugin-*.jar", 1),
-}
-
-vim.list_extend(bundles, vim.split(vim.fn.glob(test_dir .. "/extension/server/*.jar", 1), "\n"))
+vim.list_extend(bundles, vim.fn.glob("$MASON/share/java-test/*.jar", false, true))
 
 vim.keymap.set("n", "<leader>rj", jdtls.pick_test, { desc = "Pick java test to run" })
 vim.keymap.set("n", "<leader>rr", function()
@@ -31,7 +24,7 @@ vim.keymap.set("n", "<leader>rr", function()
 end, { desc = "Java Remote Debug" })
 
 local config = {
-    cmd = { jdtls_dir .. "/jdtls", "--jvm-arg=-javaagent:" .. lombok_jar, "-data", workspace_dir },
+    cmd = { "jdtls", "--jvm-arg=-javaagent:" .. lombok_jar, "-data", workspace_dir },
     root_dir = vim.fs.dirname(
         vim.fs.find({ "gradlew", ".git", "mvnw", "settings.gradle", "pom.xml" }, { upward = true })[1]
     ),

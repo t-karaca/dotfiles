@@ -15,7 +15,7 @@ return {
                 cpp = { "clang-format" },
 
                 -- Config
-                json = { "prettierd" },
+                -- json = { "prettierd" },
                 -- yaml = { "yamlfmt" },
 
                 -- Other
