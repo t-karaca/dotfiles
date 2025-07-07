@@ -1,0 +1,2 @@
+--theme="Catppuccin Mocha"
+--pager="less -r --mouse --quit-if-one-screen -j.5"

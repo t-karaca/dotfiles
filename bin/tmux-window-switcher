@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -e
+
+list_windows_query="#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}"
+
+next_action='tmux-move-window next {1}'
+previous_action='tmux-move-window previous {1}'
+kill_action='tmux kill-window -t {1}'
+# reload_action='tmux list-windows -F "#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}"'
+reload_action="tmux list-windows -F '$list_windows_query'"
+
+help_label=" ctrl+p 🡒 Move window down   ctrl+n 🡒 Move window up   ctrl+x 🡒 Kill window "
+
+# windows=$(tmux list-windows -F "#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}")
+windows=$(tmux list-windows -F "$list_windows_query")
+active_index=$(tmux display-message -p -F "#{window_index}")
+
+selected_window=$(
+    echo "$windows" | fzf \
+        --accept-nth 1 \
+        --border top \
+        --border-label "$help_label" \
+        --sync \
+        --bind "start:pos($active_index),ctrl-p:execute-silent($previous_action)+reload-sync($reload_action)+down,ctrl-n:execute-silent($next_action)+reload-sync($reload_action)+up,ctrl-x:execute-silent($kill_action)+reload-sync($reload_action)+down"
+)
+
+tmux select-window -t "$selected_window"

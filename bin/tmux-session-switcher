@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+sessions=$(tmux list-sessions -F "#{session_name}")
+current_session=$(tmux display-message -p -F "#{session_name}")
+
+active_index=$(echo "$sessions" | grep -n -e "^$current_session\$" | awk -F: '{ print $1 }')
+
+selected_session=$(echo "$sessions" | fzf --bind "load:pos($active_index)")
+
+tmux switch-client -t "$selected_session"

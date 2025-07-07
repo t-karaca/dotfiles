@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -e
+
+direction="$1"
+index="$2"
+
+active_index=$(tmux display-message -p -F "#{window_index}")
+
+if [ "$direction" = "previous" ]; then
+    target_index=$((index - 1))
+elif [ "$direction" = "next" ]; then
+    target_index=$((index + 1))
+else
+    echo "Invalid direction: $direction"
+    exit 1
+fi
+
+if [ "$index" = "$active_index" ]; then
+    tmux link-window -d -s "$target_index" -t 99
+    tmux unlink-window -t "$target_index"
+    tmux link-window -s "$index" -t "$target_index"
+    tmux unlink-window -t "$index"
+    tmux move-window -d -s 99 -t "$index"
+elif [ "$target_index" = "$active_index" ]; then
+    tmux link-window -d -s "$index" -t 99
+    tmux unlink-window -t "$index"
+    tmux link-window -s "$target_index" -t "$index"
+    tmux unlink-window -t "$target_index"
+    tmux move-window -d -s 99 -t "$target_index"
+else
+    tmux swap-window -s "$index" -t "$target_index"
+fi
