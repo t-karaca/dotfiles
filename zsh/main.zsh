@@ -72,7 +72,11 @@ source "${ZSH}/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
 zstyle ':completion:*' matcher-list 'r:|?=**'
 zstyle ':completion:*:git-checkout:*' sort false
 zstyle ':completion:*:zshz:*' sort false
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --icons=always --color=always $realpath'
+# NOTE: This may lead to unexpected behavior since some flags break this plugin. See Aloxaf/fzf-tab#455.
+zstyle ':fzf-tab:*' use-fzf-default-opts yes
+# force zsh not to show completion menu, which allows fzf-tab to capture the unambiguous prefix
+zstyle ':completion:*' menu no
 
 source "${ZSH}/plugins/gradle/gradle.plugin.zsh"
 source "${ZSH}/env.zsh"
