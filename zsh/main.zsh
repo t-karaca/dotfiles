@@ -87,5 +87,20 @@ list_files() {
     la
 }
 
-add-zsh-hook chpwd list_files
+_set_title() {
+    printf "\e]2;$1\e\\"
+}
 
+_title_preexec() {
+    title=$1
+    _set_title "$title"
+}
+
+_title_precmd() {
+    title=$(print -P %~)
+    _set_title "$title"
+}
+
+add-zsh-hook chpwd list_files
+add-zsh-hook preexec _title_preexec
+add-zsh-hook precmd _title_precmd
