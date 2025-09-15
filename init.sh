@@ -50,6 +50,7 @@ link_file "bat" ".config/bat"
 link_file "bottom" ".config/bottom"
 link_file "k9s" ".config/k9s"
 link_file "lazygit" ".config/lazygit"
+link_file "lazydocker" ".config/lazydocker"
 link_file "nvim" ".config/nvim"
 link_file "tmux" ".config/tmux"
 

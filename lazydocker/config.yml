@@ -1,0 +1,11 @@
+gui:
+  screenMode: normal
+  scrollHeight: 20
+  nerdFontsVersion: "3"
+  border: rounded
+  showBottomLine: true
+  theme:
+    activeBorderColor:
+      - blue
+    inactiveBorderColor:
+      - black
