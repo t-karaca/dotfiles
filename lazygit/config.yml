@@ -1,9 +1,15 @@
 gui:
-  screenMode: normal
-  scrollHeight: 10
+  scrollHeight: 20
   nerdFontsVersion: "3"
   border: rounded
-  showBottomLine: false
+  showCommandLog: true
+  theme:
+    activeBorderColor:
+      - blue
+    inactiveBorderColor:
+      - black
+  portraitMode: auto
+  showPanelJumps: false
 keybinding:
   universal:
     nextTab: <c-e>
@@ -13,3 +19,10 @@ git:
   paging:
     colorArg: always
     pager: delta --dark --paging=never
+  mainBranches:
+    - main
+    - master
+    - dev
+    - development
+promptToReturnFromSubprocess: false
+notARepository: quit
