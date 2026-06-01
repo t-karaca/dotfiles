@@ -10,15 +10,18 @@ gui:
       - black
   portraitMode: auto
   showPanelJumps: false
+  expandFocusedSidePanel: true
+  expandedSidePanelWeight: 4
+  showRootItemInFileTree: false
 keybinding:
   universal:
     nextTab: <c-e>
     diffingMenu-alt: <c-a>
     jumpToBlock: ["0", "1", "2", "3", "4"]
 git:
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
+  pagers:
+    - colorArg: always
+      pager: delta --dark --paging=never
   mainBranches:
     - main
     - master

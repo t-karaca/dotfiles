@@ -104,3 +104,18 @@ _title_precmd() {
 add-zsh-hook chpwd list_files
 add-zsh-hook preexec _title_preexec
 add-zsh-hook precmd _title_precmd
+
+function _set_block_cursor() { echo -ne '\e[2 q' }
+function _set_beam_cursor() { echo -ne '\e[6 q' }
+
+function zle-keymap-select {
+  if [[ ${KEYMAP} == vicmd ]] || [[ $1 = 'block' ]]; then
+      _set_block_cursor
+  else
+      _set_beam_cursor
+  fi
+}
+
+zle -N zle-keymap-select
+
+add-zsh-hook precmd _set_beam_cursor
