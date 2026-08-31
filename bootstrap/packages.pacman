@@ -1,0 +1,42 @@
+# Shell and bootstrap
+bash
+zsh
+git
+curl
+
+# Core terminal workflow
+tmux
+fzf
+fd
+ripgrep
+bat
+eza
+git-delta
+less
+
+# Shared preview and presentation tools planned for Phase 1
+jq
+glow
+chafa
+
+# Interactive applications and integrations already configured here
+neovim
+lazygit
+lazydocker
+zoxide
+openssh
+openssl
+tldr
+wl-clipboard
+
+# Existing tmux/Zsh helpers
+docker
+kubectl
+kubectx
+k9s
+python
+procps-ng
+gawk
+grep
+sed
+coreutils
