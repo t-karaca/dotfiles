@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+
+usage() {
+    printf 'Usage: %s {records|select [fzf options]}\n' "${0##*/}"
+}
+
+emit_record() {
+    local result=$1
+    local search=$2
+    local display=$3
+    local metadata=$4
+
+    [[ $result != *$'\t'* ]] || {
+        printf 'fzf-candidate-demo: result fields cannot contain literal tabs.\n' >&2
+        return 1
+    }
+    printf '%s\t%s\t%s\t%s\0' "$result" "$search" "$display" "$metadata"
+}
+
+records() {
+    emit_record \
+        "notes/space quote ' \" \$() ; | & [brackets].md" \
+        'notes space quote shell metacharacters' \
+        $'\e[38;2;137;180;250mSpecial characters\e[0m' \
+        'kind=text'
+    emit_record \
+        $'notes/newline\nfilename.md' \
+        'notes newline filename' \
+        $'\e[38;2;166;227;161mNewline filename\e[0m' \
+        'kind=text'
+    emit_record \
+        'data/example.json' \
+        'data json example' \
+        $'\e[38;2;249;226;175mJSON example\e[0m' \
+        'kind=json'
+}
+
+case ${1:-} in
+    records)
+        records
+        ;;
+    select)
+        shift
+        records | "$ROOT_DIR/bin/fzf-record-select" "$@"
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

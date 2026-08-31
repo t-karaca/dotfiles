@@ -146,6 +146,7 @@ check_packages() {
 
 check_commands() {
     local command
+    local helper
     local -a commands=(
         bash zsh git tmux fzf fd rg bat eza delta jq glow chafa less curl
         python nvim lazygit lazydocker zoxide ssh openssl tldr wl-copy docker
@@ -155,6 +156,14 @@ check_commands() {
     section 'Commands'
     for command in "${commands[@]}"; do
         check_command "$command"
+    done
+
+    for helper in fzf-record-select fzf-candidate-demo preview-dispatcher; do
+        if [[ -x $ROOT_DIR/bin/$helper ]]; then
+            pass "repository command available: $helper"
+        else
+            fail "repository command is unavailable: $helper"
+        fi
     done
 }
 

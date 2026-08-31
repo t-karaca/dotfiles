@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+MAX_LINES=200
+
+usage() {
+    printf 'Usage: %s <path>\n' "${0##*/}"
+}
+
+fail() {
+    printf 'preview-dispatcher: %s\n' "$1" >&2
+    exit 1
+}
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
+}
+
+preview_directory() {
+    require_command eza
+    eza --tree --level=2 --color=always --icons=always -- "$1" | sed -n "1,${MAX_LINES}p"
+}
+
+preview_text() {
+    require_command bat
+    bat --paging=never --style=numbers --color=always --line-range=":${MAX_LINES}" -- "$1"
+}
+
+preview_json() {
+    require_command jq
+    jq --color-output . "$1" | sed -n "1,${MAX_LINES}p"
+}
+
+preview_markdown() {
+    require_command glow
+    # Glow only renders color when writing directly to the preview terminal.
+    glow --width "${FZF_PREVIEW_COLUMNS:-80}" "$1"
+}
+
+[[ $# == 1 ]] || {
+    usage >&2
+    exit 2
+}
+
+target=$1
+[[ -e $target ]] || fail "path does not exist: $target"
+[[ -r $target ]] || fail "path is not readable: $target"
+
+if [[ -d $target ]]; then
+    preview_directory "$target"
+    exit
+fi
+
+case ${target,,} in
+    *.json) preview_json "$target" ;;
+    *.md|*.markdown) preview_markdown "$target" ;;
+    *) preview_text "$target" ;;
+esac
