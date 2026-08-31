@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 DRY_RUN=false
 
+source "$ROOT_DIR/bootstrap/lib.sh"
+
 usage() {
     printf 'Usage: %s [--dry-run]\n' "${0##*/}"
 }
@@ -50,12 +52,10 @@ zsh_xdg_ready() {
     local zshenv_source
     local zsh_config_source
 
-    zshenv_source=$(readlink -f -- "$ROOT_DIR/zsh/.zshenv")
-    zsh_config_source=$(readlink -f -- "$ROOT_DIR/zsh")
-    [[ -L $HOME/.zshenv ]] \
-        && [[ $(readlink -f -- "$HOME/.zshenv") == "$zshenv_source" ]] \
-        && [[ -L $HOME/.config/zsh ]] \
-        && [[ $(readlink -f -- "$HOME/.config/zsh") == "$zsh_config_source" ]]
+    zshenv_source=$(resolve_path "$ROOT_DIR/zsh/.zshenv")
+    zsh_config_source=$(resolve_path "$ROOT_DIR/zsh")
+    link_resolves_to "$zshenv_source" "$HOME/.zshenv" \
+        && link_resolves_to "$zsh_config_source" "$HOME/.config/zsh"
 }
 
 retire_legacy_zshrc() {
@@ -156,7 +156,7 @@ link_config() {
     local source_path
     local backup
 
-    source_path=$(readlink -f -- "$source")
+    source_path=$(resolve_path "$source")
     if [[ ! -e $source_path ]]; then
         warn "Source does not exist: $source"
         return
@@ -168,7 +168,7 @@ link_config() {
         return
     fi
 
-    if [[ -L $target ]] && [[ $(readlink -f -- "$target") == "$source_path" ]]; then
+    if link_resolves_to "$source" "$target"; then
         log "Link already correct: $target"
         return
     fi
@@ -208,6 +208,7 @@ link_configs() {
     link_config "$ROOT_DIR/lazydocker" "$HOME/.config/lazydocker"
     link_config "$ROOT_DIR/nvim" "$HOME/.config/nvim"
     link_config "$ROOT_DIR/tmux" "$HOME/.config/tmux"
+    link_config "$ROOT_DIR/git" "$HOME/.config/git"
     link_config "$ROOT_DIR/zsh" "$HOME/.config/zsh"
     link_config "$ROOT_DIR/zsh/.zshenv" "$HOME/.zshenv"
 }

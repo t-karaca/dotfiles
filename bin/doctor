@@ -6,6 +6,8 @@ ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
 failures=0
 warnings=0
 
+source "$ROOT_DIR/bootstrap/lib.sh"
+
 section() {
     printf '\n== %s ==\n' "$1"
 }
@@ -40,7 +42,7 @@ check_link() {
     local target=$3
     local source_path
 
-    source_path=$(readlink -f -- "$source")
+    source_path=$(resolve_path "$source")
     if [[ ! -e $source_path ]]; then
         fail "$label source is missing: $source"
         return
@@ -55,7 +57,7 @@ check_link() {
         return
     fi
 
-    if [[ $(readlink -f -- "$target") == "$source_path" ]]; then
+    if link_resolves_to "$source" "$target"; then
         pass "$label resolves to $source_path"
     else
         fail "$label resolves to $(readlink -f -- "$target"), expected $source_path"
@@ -182,23 +184,32 @@ check_theme() {
 }
 
 check_git() {
+    local git_source
+
     section 'Git'
-    if [[ -f $HOME/.gitconfig ]]; then
-        pass 'machine-local ~/.gitconfig exists.'
+    git_source=$(resolve_path "$ROOT_DIR/git")
+    if link_resolves_to "$git_source" "$HOME/.config/git"; then
+        pass 'Git XDG link resolves to the repository.'
+    elif [[ -e $HOME/.config/git || -L $HOME/.config/git ]]; then
+        fail 'Git XDG path does not resolve to the repository.'
     else
-        warn 'machine-local ~/.gitconfig is absent.'
+        warn 'Git XDG configuration is not linked; run init.sh to migrate it.'
     fi
 
-    if [[ -e $HOME/.config/git ]]; then
-        warn 'Git XDG configuration exists before Checkpoint D migration.'
+    if [[ -f $HOME/.gitconfig ]]; then
+        pass 'machine-local ~/.gitconfig exists for local identity and overrides.'
     else
-        warn 'shared Git XDG configuration is scheduled for Checkpoint D.'
+        pass 'no machine-local ~/.gitconfig; Git will use the XDG shared config once linked.'
+    fi
+
+    if [[ -f $ROOT_DIR/git/config ]]; then
+        pass 'shared Git configuration exists.'
+    else
+        fail 'shared Git configuration is missing.'
     fi
 
     if [[ -f $ROOT_DIR/delta.gitconfig ]]; then
-        pass 'legacy repository Delta config exists.'
-    else
-        warn 'legacy repository Delta config is absent.'
+        warn 'legacy delta.gitconfig remains until Checkpoint E theme migration.'
     fi
 }
 
@@ -216,12 +227,10 @@ check_zsh() {
     )
 
     section 'Zsh'
-    zshenv_source=$(readlink -f -- "$ROOT_DIR/zsh/.zshenv")
-    zsh_config_source=$(readlink -f -- "$ROOT_DIR/zsh")
-    if [[ -L $HOME/.zshenv ]] \
-        && [[ $(readlink -f -- "$HOME/.zshenv") == "$zshenv_source" ]] \
-        && [[ -L $HOME/.config/zsh ]] \
-        && [[ $(readlink -f -- "$HOME/.config/zsh") == "$zsh_config_source" ]]; then
+    zshenv_source=$(resolve_path "$ROOT_DIR/zsh/.zshenv")
+    zsh_config_source=$(resolve_path "$ROOT_DIR/zsh")
+    if link_resolves_to "$zshenv_source" "$HOME/.zshenv" \
+        && link_resolves_to "$zsh_config_source" "$HOME/.config/zsh"; then
         pass 'XDG Zsh links resolve to the repository.'
         if [[ -e $HOME/.zshrc || -L $HOME/.zshrc ]]; then
             warn 'legacy ~/.zshrc remains; bootstrap can back it up after XDG verification.'
