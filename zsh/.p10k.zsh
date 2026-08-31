@@ -33,11 +33,9 @@
   typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(
     # =========================[ Line #1 ]=========================
     context                 # user@hostname
-    os_icon                 # os identifier
     background_jobs         # presence of background jobs
     dir                     # current directory
     vcs                     # git status
-    kubecontext             # current kubernetes context (https://kubernetes.io/)
     # =========================[ Line #2 ]=========================
     newline                 # \n
     prompt_char             # prompt symbol
@@ -51,62 +49,6 @@
     # =========================[ Line #1 ]=========================
     status                  # exit code of the last command
     command_execution_time  # duration of the last command
-    direnv                  # direnv status (https://direnv.net/)
-    asdf                    # asdf version manager (https://github.com/asdf-vm/asdf)
-    virtualenv              # python virtual environment (https://docs.python.org/3/library/venv.html)
-    anaconda                # conda environment (https://conda.io/)
-    pyenv                   # python environment (https://github.com/pyenv/pyenv)
-    goenv                   # go environment (https://github.com/syndbg/goenv)
-    nodenv                  # node.js version from nodenv (https://github.com/nodenv/nodenv)
-    nvm                     # node.js version from nvm (https://github.com/nvm-sh/nvm)
-    nodeenv                 # node.js environment (https://github.com/ekalinin/nodeenv)
-    # node_version          # node.js version
-    # go_version            # go version (https://golang.org)
-    # rust_version          # rustc version (https://www.rust-lang.org)
-    # dotnet_version        # .NET version (https://dotnet.microsoft.com)
-    # php_version           # php version (https://www.php.net/)
-    # laravel_version       # laravel php framework version (https://laravel.com/)
-    # java_version          # java version (https://www.java.com/)
-    # package               # name@version from package.json (https://docs.npmjs.com/files/package.json)
-    rbenv                   # ruby version from rbenv (https://github.com/rbenv/rbenv)
-    rvm                     # ruby version from rvm (https://rvm.io)
-    fvm                     # flutter version management (https://github.com/leoafarias/fvm)
-    luaenv                  # lua version from luaenv (https://github.com/cehoffman/luaenv)
-    jenv                    # java version from jenv (https://github.com/jenv/jenv)
-    plenv                   # perl version from plenv (https://github.com/tokuhirom/plenv)
-    perlbrew                # perl version from perlbrew (https://github.com/gugod/App-perlbrew)
-    phpenv                  # php version from phpenv (https://github.com/phpenv/phpenv)
-    scalaenv                # scala version from scalaenv (https://github.com/scalaenv/scalaenv)
-    haskell_stack           # haskell version from stack (https://haskellstack.org/)
-    terraform               # terraform workspace (https://www.terraform.io)
-    # terraform_version     # terraform version (https://www.terraform.io)
-    aws                     # aws profile (https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html)
-    aws_eb_env              # aws elastic beanstalk environment (https://aws.amazon.com/elasticbeanstalk/)
-    azure                   # azure account name (https://docs.microsoft.com/en-us/cli/azure)
-    gcloud                  # google cloud cli account and project (https://cloud.google.com/)
-    google_app_cred         # google application credentials (https://cloud.google.com/docs/authentication/production)
-    toolbox                 # toolbox name (https://github.com/containers/toolbox)
-    nordvpn                 # nordvpn connection status, linux only (https://nordvpn.com/)
-    ranger                  # ranger shell (https://github.com/ranger/ranger)
-    nnn                     # nnn shell (https://github.com/jarun/nnn)
-    lf                      # lf shell (https://github.com/gokcehan/lf)
-    xplr                    # xplr shell (https://github.com/sayanarijit/xplr)
-    vim_shell               # vim shell indicator (:sh)
-    midnight_commander      # midnight commander shell (https://midnight-commander.org/)
-    nix_shell               # nix shell (https://nixos.org/nixos/nix-pills/developing-with-nix-shell.html)
-    chezmoi_shell           # chezmoi shell (https://www.chezmoi.io/)
-    # vi_mode               # vi mode (you don't need this if you've enabled prompt_char)
-    # vpn_ip                # virtual private network indicator
-    # load                  # CPU load
-    # disk_usage            # disk usage
-    # ram                   # free RAM
-    # swap                  # used swap
-    todo                    # todo items (https://github.com/todotxt/todo.txt-cli)
-    timewarrior             # timewarrior tracking status (https://timewarrior.net/)
-    taskwarrior             # taskwarrior task count (https://taskwarrior.org/)
-    per_directory_history   # Oh My Zsh per-directory-history local/global indicator
-    # cpu_arch              # CPU architecture
-    # time                    # current time
     # =========================[ Line #2 ]=========================
     newline
     # ip                    # ip address and bandwidth usage for a specified network interface
@@ -279,7 +221,7 @@
   # directory will be shortened only when prompt doesn't fit or when other parameters demand it
   # (see POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS and POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS_PCT below).
   # If set to `0`, directory will always be shortened to its minimum length.
-  typeset -g POWERLEVEL9K_DIR_MAX_LENGTH=80
+  typeset -g POWERLEVEL9K_DIR_MAX_LENGTH=60
   # When `dir` segment is on the last prompt line, try to shorten it enough to leave at least this
   # many columns for typing commands.
   typeset -g POWERLEVEL9K_DIR_MIN_COMMAND_COLUMNS=40
@@ -401,10 +343,7 @@
 
     if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
       local branch=${(V)VCS_STATUS_LOCAL_BRANCH}
-      # If local branch name is at most 32 characters long, show it in full.
-      # Otherwise show the first 12 … the last 12.
-      # Tip: To always show local branch name in full without truncation, delete the next line.
-      (( $#branch > 32 )) && branch[13,-13]="…"  # <-- this line
+      (( $#branch > 24 )) && branch[11,-11]="…"
       res+="${clean}${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
     fi
 
@@ -414,10 +353,7 @@
           && -z $VCS_STATUS_LOCAL_BRANCH  # <-- this line
         ]]; then
       local tag=${(V)VCS_STATUS_TAG}
-      # If tag name is at most 32 characters long, show it in full.
-      # Otherwise show the first 12 … the last 12.
-      # Tip: To always show tag name in full without truncation, delete the next line.
-      (( $#tag > 32 )) && tag[13,-13]="…"  # <-- this line
+      (( $#tag > 24 )) && tag[11,-11]="…"
       res+="${meta}#${clean}${tag//\%/%%}"
     fi
 
@@ -426,25 +362,12 @@
     [[ -z $VCS_STATUS_LOCAL_BRANCH && -z $VCS_STATUS_TAG ]] &&  # <-- this line
       res+="${meta}@${clean}${VCS_STATUS_COMMIT[1,8]}"
 
-    # Show tracking branch name if it differs from local branch.
-    if [[ -n ${VCS_STATUS_REMOTE_BRANCH:#$VCS_STATUS_LOCAL_BRANCH} ]]; then
-      res+="${meta}:${clean}${(V)VCS_STATUS_REMOTE_BRANCH//\%/%%}"
-    fi
-
-    # Display "wip" if the latest commit's summary contains "wip" or "WIP".
-    if [[ $VCS_STATUS_COMMIT_SUMMARY == (|*[^[:alnum:]])(wip|WIP)(|[^[:alnum:]]*) ]]; then
-      res+=" ${modified}wip"
-    fi
-
     if (( VCS_STATUS_COMMITS_AHEAD || VCS_STATUS_COMMITS_BEHIND )); then
       # ⇣42 if behind the remote.
       (( VCS_STATUS_COMMITS_BEHIND )) && res+=" ${clean}⇣${VCS_STATUS_COMMITS_BEHIND}"
       # ⇡42 if ahead of the remote; no leading space if also behind the remote: ⇣42⇡42.
       (( VCS_STATUS_COMMITS_AHEAD && !VCS_STATUS_COMMITS_BEHIND )) && res+=" "
       (( VCS_STATUS_COMMITS_AHEAD  )) && res+="${clean}⇡${VCS_STATUS_COMMITS_AHEAD}"
-    elif [[ -n $VCS_STATUS_REMOTE_BRANCH ]]; then
-      # Tip: Uncomment the next line to display '=' if up to date with the remote.
-      # res+=" ${clean}="
     fi
 
     # ⇠42 if behind the push remote.
@@ -477,6 +400,44 @@
   }
   functions -M my_git_formatter 2>/dev/null
 
+  # Keep branch/divergence/action/dirty state without per-file counters or remote clutter.
+  function compact_git_formatter() {
+    emulate -L zsh
+
+    if [[ -n $P9K_CONTENT ]]; then
+      typeset -g my_git_format=$P9K_CONTENT
+      return
+    fi
+
+    local meta='%7F'
+    local clean='%0F'
+    local modified='%0F'
+    local conflicted='%1F'
+    local res
+
+    if [[ -n $VCS_STATUS_LOCAL_BRANCH ]]; then
+      local branch=${(V)VCS_STATUS_LOCAL_BRANCH}
+      (( $#branch > 24 )) && branch[11,-11]="…"
+      res+="${clean}${(g::)POWERLEVEL9K_VCS_BRANCH_ICON}${branch//\%/%%}"
+    elif [[ -n $VCS_STATUS_TAG ]]; then
+      local tag=${(V)VCS_STATUS_TAG}
+      (( $#tag > 24 )) && tag[11,-11]="…"
+      res+="${meta}#${clean}${tag//\%/%%}"
+    else
+      res+="${meta}@${clean}${VCS_STATUS_COMMIT[1,8]}"
+    fi
+
+    (( VCS_STATUS_COMMITS_BEHIND )) && res+=" ${clean}⇣${VCS_STATUS_COMMITS_BEHIND}"
+    (( VCS_STATUS_COMMITS_AHEAD )) && res+=" ${clean}⇡${VCS_STATUS_COMMITS_AHEAD}"
+    [[ -n $VCS_STATUS_ACTION ]] && res+=" ${conflicted}${VCS_STATUS_ACTION}"
+    (( VCS_STATUS_NUM_CONFLICTED )) && res+=" ${conflicted}!"
+    (( VCS_STATUS_NUM_STAGED || VCS_STATUS_NUM_UNSTAGED || VCS_STATUS_NUM_UNTRACKED )) && res+=" ${modified}*"
+    (( VCS_STATUS_HAS_UNSTAGED == -1 )) && res+=" ${modified}─"
+
+    typeset -g my_git_format=$res
+  }
+  functions -M compact_git_formatter 2>/dev/null
+
   # Don't count the number of unstaged, untracked and conflicted files in Git repositories with
   # more than this many files in the index. Negative value means infinity.
   #
@@ -493,10 +454,11 @@
 
   # Disable the default Git status formatting.
   typeset -g POWERLEVEL9K_VCS_DISABLE_GITSTATUS_FORMATTING=true
-  # Install our own Git status formatter.
-  typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${$((my_git_formatter()))+${my_git_format}}'
-  # Enable counters for staged, unstaged, etc.
-  typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED,COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
+  # Install the compact custom Git status formatter.
+  typeset -g POWERLEVEL9K_VCS_CONTENT_EXPANSION='${$((compact_git_formatter()))+${my_git_format}}'
+  # Only presence matters for worktree states; divergence keeps exact counts.
+  typeset -g POWERLEVEL9K_VCS_{STAGED,UNSTAGED,UNTRACKED,CONFLICTED}_MAX_NUM=1
+  typeset -g POWERLEVEL9K_VCS_{COMMITS_AHEAD,COMMITS_BEHIND}_MAX_NUM=-1
 
   # Custom icon.
   # typeset -g POWERLEVEL9K_VCS_VISUAL_IDENTIFIER_EXPANSION='⭐'
@@ -1800,7 +1762,7 @@
   #   - always:   Trim down prompt when accepting a command line.
   #   - same-dir: Trim down prompt when accepting a command line unless this is the first command
   #               typed after changing current working directory.
-  typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
+  typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=same-dir
 
   # Instant prompt mode.
   #
