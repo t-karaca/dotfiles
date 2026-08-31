@@ -209,8 +209,26 @@ link_configs() {
     link_config "$ROOT_DIR/nvim" "$HOME/.config/nvim"
     link_config "$ROOT_DIR/tmux" "$HOME/.config/tmux"
     link_config "$ROOT_DIR/git" "$HOME/.config/git"
+    link_config "$ROOT_DIR/fzf" "$HOME/.config/fzf"
     link_config "$ROOT_DIR/zsh" "$HOME/.config/zsh"
     link_config "$ROOT_DIR/zsh/.zshenv" "$HOME/.zshenv"
+}
+
+initialize_theme() {
+    local theme
+
+    log '==> Initializing theme indirection'
+    if [[ ! -x $ROOT_DIR/bin/theme-set ]]; then
+        warn 'theme-set is unavailable; skipping theme initialization.'
+        return
+    fi
+
+    if theme=$("$ROOT_DIR/bin/theme-set" status 2>/dev/null); then
+        log "Theme already initialized: $theme"
+    else
+        log 'No theme is selected; defaulting to dark.'
+        run "$ROOT_DIR/bin/theme-set" dark
+    fi
 }
 
 build_caches_and_verify_assets() {
@@ -267,6 +285,7 @@ main() {
     install_packages
     initialize_submodules
     link_configs
+    initialize_theme
     retire_legacy_zshrc
     build_caches_and_verify_assets
     run_doctor

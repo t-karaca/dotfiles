@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+
+usage() {
+    printf 'Usage: %s {dark|light|status}\n' "${0##*/}"
+}
+
+replace_link() {
+    local source=$1
+    local target=$2
+    local temporary="${target}.tmp.$$"
+
+    ln -s "$source" "$temporary"
+    mv -Tf -- "$temporary" "$target"
+}
+
+current_theme() {
+    local target=$1
+    local expected=$2
+
+    [[ -L $target ]] && [[ $(readlink -f -- "$target") == "$(readlink -f -- "$expected")" ]]
+}
+
+set_theme() {
+    local theme=$1
+    local delta_theme
+    local fzf_theme
+
+    case $theme in
+        dark)
+            delta_theme="$ROOT_DIR/git/delta/mocha.gitconfig"
+            fzf_theme="$ROOT_DIR/fzf/mocha"
+            ;;
+        light)
+            delta_theme="$ROOT_DIR/git/delta/latte.gitconfig"
+            fzf_theme="$ROOT_DIR/fzf/latte"
+            ;;
+        *)
+            usage >&2
+            return 2
+            ;;
+    esac
+
+    replace_link "$delta_theme" "$ROOT_DIR/git/delta/current.gitconfig"
+    replace_link "$fzf_theme" "$ROOT_DIR/fzf/current"
+    printf '%s\n' "$theme"
+}
+
+status() {
+    if current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/mocha.gitconfig" \
+        && current_theme "$ROOT_DIR/fzf/current" "$ROOT_DIR/fzf/mocha"; then
+        printf 'dark\n'
+    elif current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/latte.gitconfig" \
+        && current_theme "$ROOT_DIR/fzf/current" "$ROOT_DIR/fzf/latte"; then
+        printf 'light\n'
+    else
+        printf 'Theme indirection is missing or inconsistent.\n' >&2
+        return 1
+    fi
+}
+
+case ${1:-} in
+    dark|light) set_theme "$1" ;;
+    status) status ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac

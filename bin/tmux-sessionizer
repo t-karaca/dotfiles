@@ -15,7 +15,7 @@ else
 
     directories=$(printf "$directories\n%s" "$dirs")
 
-    selected=$(echo "$directories" | fzf-wrapped)
+    selected=$(echo "$directories" | fzf)
     # echo "$directories"
     # exit 0
 fi

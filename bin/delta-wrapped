@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-
-is_dark="$(tmux showenv -g DARK_MODE | cut --delimiter "=" --fields 2)"
-
-if [ "$is_dark" = "true" ]; then
-    delta --syntax-theme "Catppuccin Mocha" "$@"
-else
-    delta --syntax-theme "Catppuccin Latte" "$@"
-fi

@@ -106,6 +106,7 @@ check_config_links() {
     check_link 'lazygit config' "$ROOT_DIR/lazygit" "$HOME/.config/lazygit"
     check_link 'nvim config' "$ROOT_DIR/nvim" "$HOME/.config/nvim"
     check_link 'tmux config' "$ROOT_DIR/tmux" "$HOME/.config/tmux"
+    check_link 'fzf config' "$ROOT_DIR/fzf" "$HOME/.config/fzf"
 
     if [[ -L $HOME/.config/lazydocker ]]; then
         check_link 'lazydocker config' "$ROOT_DIR/lazydocker" "$HOME/.config/lazydocker"
@@ -159,6 +160,9 @@ check_commands() {
 
 check_theme() {
     local asset
+    local theme
+    local expected_delta_theme
+    local delta_theme
     local -a assets=(
         'bat/themes/Catppuccin Mocha.tmTheme'
         'bat/themes/Catppuccin Latte.tmTheme'
@@ -180,7 +184,35 @@ check_theme() {
         fail 'Catppuccin tmux plugin is unavailable.'
     fi
 
-    warn 'theme-set and native fzf/Delta theme indirection are scheduled for Checkpoint E.'
+    if [[ -x $ROOT_DIR/bin/theme-set ]]; then
+        if theme=$("$ROOT_DIR/bin/theme-set" status 2>/dev/null); then
+            pass "theme indirection is consistent: $theme"
+        else
+            fail 'theme indirection is missing or inconsistent.'
+        fi
+    else
+        fail 'theme-set is unavailable.'
+    fi
+
+    if grep -Fxq -- '--theme="auto"' "$ROOT_DIR/bat/config" \
+        && grep -Fxq -- '--theme-light="Catppuccin Latte"' "$ROOT_DIR/bat/config" \
+        && grep -Fxq -- '--theme-dark="Catppuccin Mocha"' "$ROOT_DIR/bat/config"; then
+        pass 'bat uses native automatic Catppuccin theme selection.'
+    else
+        fail 'bat native automatic Catppuccin theme selection is incomplete.'
+    fi
+
+    case ${theme:-} in
+        dark) expected_delta_theme='Catppuccin Mocha' ;;
+        light) expected_delta_theme='Catppuccin Latte' ;;
+        *) expected_delta_theme='' ;;
+    esac
+    delta_theme=$(git config --file "$ROOT_DIR/git/config" --includes --get delta.syntax-theme 2>/dev/null || true)
+    if [[ -n $expected_delta_theme && $delta_theme == "$expected_delta_theme" ]]; then
+        pass "Git reads the active Delta theme: $delta_theme"
+    else
+        fail 'Git does not read the active Delta theme.'
+    fi
 }
 
 check_git() {
@@ -208,9 +240,6 @@ check_git() {
         fail 'shared Git configuration is missing.'
     fi
 
-    if [[ -f $ROOT_DIR/delta.gitconfig ]]; then
-        warn 'legacy delta.gitconfig remains until Checkpoint E theme migration.'
-    fi
 }
 
 check_zsh() {

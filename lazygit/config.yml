@@ -21,7 +21,7 @@ keybinding:
 git:
   diffRenderers:
     - colorArg: always
-      command: delta-wrapped --paging=never
+      command: delta --paging=never
   mainBranches:
     - main
     - master

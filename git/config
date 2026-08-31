@@ -6,7 +6,9 @@
 
 [delta]
     navigate = true
-    syntax-theme = Catppuccin Mocha
+
+[include]
+    path = delta/current.gitconfig
 
 [merge]
     tool = nvimdiff

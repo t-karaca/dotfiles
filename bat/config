@@ -1,1 +1,4 @@
 --pager="less -r --mouse --quit-if-one-screen -j.5"
+--theme="auto"
+--theme-light="Catppuccin Latte"
+--theme-dark="Catppuccin Mocha"

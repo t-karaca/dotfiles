@@ -14,10 +14,6 @@ alias ...="cd ../.."
 alias ....="cd ../../.."
 alias .....="cd ../../../.."
 
-alias bat="bat-wrapped"
-alias delta="delta-wrapped"
-alias fzf="fzf-wrapped"
-
 # git
 
 alias git="LANG=en_US git"
@@ -47,7 +43,7 @@ alias k="kubectl"
 alias kpf="kubectl port-forward"
 alias keti="kubectl exec -ti"
 
-alias tl="tldr --list | fzf-wrapped --preview 'tldr {} --color always' | xargs tldr"
+alias tl="tldr --list | fzf --preview 'tldr {} --color always' | xargs tldr"
 
 if command -v go-task >/dev/null 2>&1; then
     alias task="go-task"
@@ -56,5 +52,4 @@ fi
 if command -v xdg-open >/dev/null 2>&1; then
     alias open="xdg-open"
 fi
-
 
