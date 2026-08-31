@@ -31,7 +31,8 @@ if command -v brew &> /dev/null; then
     fpath=("$brew_prefix/share/zsh/site-functions" $fpath)
 fi
 
-[[ -z "$ZSH" ]] && export ZSH="${${(%):-%x}:a:h}"
+# This path must always describe this repository, not an inherited framework path.
+export ZSH="${${(%):-%x}:A:h}"
 
 export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 export PATH="$HOME/go/bin:$PATH"
@@ -83,7 +84,10 @@ source "${ZSH}/plugins/gradle/gradle.plugin.zsh"
 source "${ZSH}/env.zsh"
 source "${ZSH}/aliases.zsh"
 source "${ZSH}/functions.zsh"
-source "${ZSH}/bash-completions/llama.cpp.bash"
+
+if [[ -r "${ZSH}/bash-completions/llama.cpp.bash" ]]; then
+    source "${ZSH}/bash-completions/llama.cpp.bash"
+fi
 
 list_files() {
     la

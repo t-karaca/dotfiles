@@ -203,7 +203,9 @@ check_git() {
 }
 
 check_zsh() {
-    local expected_source="source \"$ROOT_DIR/zsh/main.zsh\""
+    local legacy_source="source \"$ROOT_DIR/zsh/main.zsh\""
+    local zshenv_source
+    local zsh_config_source
     local plugin
     local -a plugins=(
         powerlevel10k
@@ -214,16 +216,26 @@ check_zsh() {
     )
 
     section 'Zsh'
-    if [[ -f $HOME/.zshrc ]] && grep -Fxq "$expected_source" "$HOME/.zshrc"; then
-        pass 'legacy ~/.zshrc sources the repository startup file.'
+    zshenv_source=$(readlink -f -- "$ROOT_DIR/zsh/.zshenv")
+    zsh_config_source=$(readlink -f -- "$ROOT_DIR/zsh")
+    if [[ -L $HOME/.zshenv ]] \
+        && [[ $(readlink -f -- "$HOME/.zshenv") == "$zshenv_source" ]] \
+        && [[ -L $HOME/.config/zsh ]] \
+        && [[ $(readlink -f -- "$HOME/.config/zsh") == "$zsh_config_source" ]]; then
+        pass 'XDG Zsh links resolve to the repository.'
+        if [[ -e $HOME/.zshrc || -L $HOME/.zshrc ]]; then
+            warn 'legacy ~/.zshrc remains; bootstrap can back it up after XDG verification.'
+        fi
+    elif [[ -f $HOME/.zshrc ]] && grep -Fxq "$legacy_source" "$HOME/.zshrc"; then
+        warn 'legacy ~/.zshrc is active; run init.sh to migrate to XDG Zsh.'
     else
-        fail 'legacy ~/.zshrc does not source the repository startup file.'
+        fail 'neither the XDG Zsh links nor the legacy repository entrypoint are configured.'
     fi
 
-    if zsh -n "$ROOT_DIR/zsh/main.zsh"; then
-        pass 'zsh/main.zsh passes syntax validation.'
+    if zsh -n "$ROOT_DIR/zsh/.zshenv" "$ROOT_DIR/zsh/.zshrc" "$ROOT_DIR/zsh/main.zsh"; then
+        pass 'repository Zsh entry files pass syntax validation.'
     else
-        fail 'zsh/main.zsh fails syntax validation.'
+        fail 'repository Zsh entry files fail syntax validation.'
     fi
 
     for plugin in "${plugins[@]}"; do
@@ -234,10 +246,10 @@ check_zsh() {
         fi
     done
 
-    if [[ -e $HOME/.config/zsh ]]; then
-        warn 'XDG Zsh configuration exists before Checkpoint C migration.'
+    if [[ -f $ROOT_DIR/zsh/local.zsh ]]; then
+        pass 'machine-local zsh/local.zsh exists.'
     else
-        warn 'XDG Zsh migration is scheduled for Checkpoint C.'
+        warn 'machine-local zsh/local.zsh is absent; local settings are optional.'
     fi
 }
 

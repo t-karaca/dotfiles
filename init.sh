@@ -46,50 +46,48 @@ ensure_directories() {
     run mkdir -p "$HOME/.config"
 }
 
-append_legacy_zsh_entrypoint() {
-    local target=$1
+zsh_xdg_ready() {
+    local zshenv_source
+    local zsh_config_source
 
-    if "$DRY_RUN"; then
-        log "[dry-run] would append the dotfiles Zsh entrypoint to $target"
-        return
-    fi
-
-    {
-        printf '\n### Added by dotfiles\n'
-        printf 'source "%s/zsh/main.zsh"\n\n' "$ROOT_DIR"
-    } >>"$target"
+    zshenv_source=$(readlink -f -- "$ROOT_DIR/zsh/.zshenv")
+    zsh_config_source=$(readlink -f -- "$ROOT_DIR/zsh")
+    [[ -L $HOME/.zshenv ]] \
+        && [[ $(readlink -f -- "$HOME/.zshenv") == "$zshenv_source" ]] \
+        && [[ -L $HOME/.config/zsh ]] \
+        && [[ $(readlink -f -- "$HOME/.config/zsh") == "$zsh_config_source" ]]
 }
 
-ensure_legacy_zsh_entrypoint() {
+retire_legacy_zshrc() {
     local target="$HOME/.zshrc"
+    local backup
 
-    log '==> Preserving legacy Zsh entrypoint'
-    if [[ -L $target && ! -e $target ]]; then
-        warn "Cannot update dangling Zsh entrypoint: $target"
+    log '==> Migrating legacy Zsh entrypoint'
+    if ! zsh_xdg_ready; then
+        if "$DRY_RUN"; then
+            log '[dry-run] would verify XDG Zsh links before retiring ~/.zshrc.'
+        else
+            warn 'XDG Zsh links are not ready; preserving ~/.zshrc.'
+            return
+        fi
+    fi
+
+    if [[ ! -e $target && ! -L $target ]]; then
+        log 'No legacy ~/.zshrc remains.'
         return
     fi
 
-    if [[ -d $target ]]; then
-        warn "Cannot update Zsh entrypoint because it is a directory: $target"
+    backup="$target.backup-$(date +%Y%m%d%H%M%S)"
+    if [[ -e $backup || -L $backup ]]; then
+        warn "Backup path already exists: $backup"
         return
     fi
 
-    if [[ ! -e $target ]]; then
-        log "Creating $target"
-        run touch "$target"
-        append_legacy_zsh_entrypoint "$target"
-        return
-    fi
-
-    if grep -Fxq '### Added by dotfiles' "$target"; then
-        log "Legacy Zsh entrypoint already present: $target"
-        return
-    fi
-
-    if confirm "Append the dotfiles Zsh entrypoint to $target?"; then
-        append_legacy_zsh_entrypoint "$target"
+    if confirm "Back up legacy $target to $backup now that XDG Zsh is configured?"; then
+        log "Backing up $target to $backup"
+        run mv -- "$target" "$backup"
     else
-        log "Leaving Zsh entrypoint unchanged: $target"
+        log "Leaving legacy Zsh entrypoint unchanged: $target"
     fi
 }
 
@@ -210,6 +208,8 @@ link_configs() {
     link_config "$ROOT_DIR/lazydocker" "$HOME/.config/lazydocker"
     link_config "$ROOT_DIR/nvim" "$HOME/.config/nvim"
     link_config "$ROOT_DIR/tmux" "$HOME/.config/tmux"
+    link_config "$ROOT_DIR/zsh" "$HOME/.config/zsh"
+    link_config "$ROOT_DIR/zsh/.zshenv" "$HOME/.zshenv"
 }
 
 build_caches_and_verify_assets() {
@@ -266,7 +266,7 @@ main() {
     install_packages
     initialize_submodules
     link_configs
-    ensure_legacy_zsh_entrypoint
+    retire_legacy_zshrc
     build_caches_and_verify_assets
     run_doctor
     log '==> Bootstrap complete'

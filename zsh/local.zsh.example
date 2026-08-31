@@ -1,0 +1,6 @@
+# Machine-specific session roots and PATH additions belong here.
+# This file is sourced after main.zsh and is intentionally ignored as local.zsh.
+
+# export TMUX_SESSION_FIND_DIRS="work/personal"
+# export TMUX_SESSION_DIRS="dotfiles:Notes"
+# export PATH="$PATH:$HOME/bin"
