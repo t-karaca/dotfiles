@@ -18,9 +18,8 @@ setopt INC_APPEND_HISTORY_TIME
 setopt globdots
 unsetopt BEEP
 
-bindkey -v
-bindkey '\ej' history-search-forward
-bindkey '\ek' history-search-backward
+# emacs key bindings
+bindkey -e
 
 if command -v brew &> /dev/null; then
     brew_prefix=$(brew --prefix)
@@ -74,7 +73,9 @@ zstyle ':completion:*:git-checkout:*' sort false
 zstyle ':completion:*:zshz:*' sort false
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --icons=always --color=always $realpath'
 # NOTE: This may lead to unexpected behavior since some flags break this plugin. See Aloxaf/fzf-tab#455.
-zstyle ':fzf-tab:*' use-fzf-default-opts yes
+# zstyle ':fzf-tab:*' use-fzf-default-opts yes
+zstyle ':fzf-tab:*' fzf-command fzf-wrapped
+zstyle ':fzf-tab:*' fzf_command fzf-wrapped
 # force zsh not to show completion menu, which allows fzf-tab to capture the unambiguous prefix
 zstyle ':completion:*' menu no
 
@@ -82,6 +83,7 @@ source "${ZSH}/plugins/gradle/gradle.plugin.zsh"
 source "${ZSH}/env.zsh"
 source "${ZSH}/aliases.zsh"
 source "${ZSH}/functions.zsh"
+source "${ZSH}/bash-completions/llama.cpp.bash"
 
 list_files() {
     la
@@ -105,6 +107,17 @@ add-zsh-hook chpwd list_files
 add-zsh-hook preexec _title_preexec
 add-zsh-hook precmd _title_precmd
 
+# export KEYTIMEOUT=1
+#
+# # Change cursor with support for inside/outside tmux
+# function _set_cursor() {
+#     if [[ $TMUX = '' ]]; then
+#       echo -ne $1
+#     else
+#       echo -ne "\ePtmux;\e\e$1\e\\"
+#     fi
+# }
+
 function _set_block_cursor() { echo -ne '\e[2 q' }
 function _set_beam_cursor() { echo -ne '\e[6 q' }
 
@@ -119,3 +132,10 @@ function zle-keymap-select {
 zle -N zle-keymap-select
 
 add-zsh-hook precmd _set_beam_cursor
+
+# # ensure beam cursor when starting new terminal
+# precmd_functions+=(_set_beam_cursor) #
+# # ensure insert mode and beam cursor when exiting vim
+# zle-line-init() { zle -K viins; _set_beam_cursor }
+# _set_cursor
+# echo -ne '\e[6 q'

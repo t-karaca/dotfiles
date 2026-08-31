@@ -41,6 +41,11 @@ if ! [ -f "bat/themes/Catppuccin Mocha.tmTheme" ]; then
     curl -L -o "bat/themes/Catppuccin Mocha.tmTheme" https://raw.githubusercontent.com/catppuccin/bat/refs/heads/main/themes/Catppuccin%20Mocha.tmTheme
 fi
 
+if ! [ -f "bat/themes/Catppuccin Latte.tmTheme" ]; then
+    mkdir -p bat/themes/
+    curl -L -o "bat/themes/Catppuccin Latte.tmTheme" https://raw.githubusercontent.com/catppuccin/bat/refs/heads/main/themes/Catppuccin%20Latte.tmTheme
+fi
+
 if ! [ -f "k9s/skins/catppuccin-mocha-transparent.yaml" ]; then
     mkdir -p k9s/skins/
     curl -L -o k9s/skins/catppuccin-mocha-transparent.yaml https://raw.githubusercontent.com/catppuccin/k9s/refs/heads/main/dist/catppuccin-mocha-transparent.yaml
@@ -59,3 +64,8 @@ if command -v bat >/dev/null; then
 else
     echo "WARN: could not build bat cache: bat is not installed"
 fi
+
+# TODO: ask to install dependencies using system package manager
+
+# TODO: check if nvim installed
+nvim --headless "+Lazy! restore" "+qa"

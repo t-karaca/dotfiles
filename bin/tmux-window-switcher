@@ -17,7 +17,7 @@ windows=$(tmux list-windows -F "$list_windows_query")
 active_index=$(tmux display-message -p -F "#{window_index}")
 
 selected_window=$(
-    echo "$windows" | fzf \
+    echo "$windows" | fzf-wrapped \
         --accept-nth 1 \
         --border top \
         --border-label "$help_label" \

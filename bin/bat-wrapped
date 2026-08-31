@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+is_dark="$(tmux showenv -g DARK_MODE | cut --delimiter "=" --fields 2)"
+
+if [ "$is_dark" = "true" ]; then
+    bat --theme "Catppuccin Mocha" "$@"
+else
+    bat --theme "Catppuccin Latte" "$@"
+fi

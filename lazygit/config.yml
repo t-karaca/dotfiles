@@ -19,9 +19,9 @@ keybinding:
     diffingMenu-alt: <c-a>
     jumpToBlock: ["0", "1", "2", "3", "4"]
 git:
-  pagers:
+  diffRenderers:
     - colorArg: always
-      pager: delta --dark --paging=never
+      command: delta-wrapped --paging=never
   mainBranches:
     - main
     - master

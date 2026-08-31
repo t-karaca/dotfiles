@@ -6,6 +6,5 @@ timezsh() {
 zshclearcompletions() {
 	rm -f "${ZSH}/cache/.zcompdump"
 	rm -f "${ZSH}/cache/.zcompdump.zwc"
-	zshreload
 }
 
