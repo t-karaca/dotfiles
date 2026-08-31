@@ -233,6 +233,20 @@ build_caches_and_verify_assets() {
     fi
 }
 
+run_doctor() {
+    log '==> Running doctor'
+    if [[ ! -x $ROOT_DIR/bin/doctor ]]; then
+        warn 'doctor is unavailable; skipping validation.'
+        return
+    fi
+
+    if "$DRY_RUN"; then
+        run "$ROOT_DIR/bin/doctor"
+    elif ! "$ROOT_DIR/bin/doctor"; then
+        warn 'doctor reported required issues; review its output above.'
+    fi
+}
+
 main() {
     case ${1:-} in
         '') ;;
@@ -254,6 +268,7 @@ main() {
     link_configs
     ensure_legacy_zsh_entrypoint
     build_caches_and_verify_assets
+    run_doctor
     log '==> Bootstrap complete'
 }
 

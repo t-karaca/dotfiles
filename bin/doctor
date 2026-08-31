@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+failures=0
+warnings=0
+
+section() {
+    printf '\n== %s ==\n' "$1"
+}
+
+pass() {
+    printf 'PASS: %s\n' "$1"
+}
+
+warn() {
+    printf 'WARN: %s\n' "$1"
+    ((warnings += 1))
+}
+
+fail() {
+    printf 'FAIL: %s\n' "$1"
+    ((failures += 1))
+}
+
+check_command() {
+    local command=$1
+
+    if command -v "$command" >/dev/null 2>&1; then
+        pass "command available: $command"
+    else
+        fail "required command is unavailable: $command"
+    fi
+}
+
+check_link() {
+    local label=$1
+    local source=$2
+    local target=$3
+    local source_path
+
+    source_path=$(readlink -f -- "$source")
+    if [[ ! -e $source_path ]]; then
+        fail "$label source is missing: $source"
+        return
+    fi
+
+    if [[ ! -L $target ]]; then
+        if [[ -e $target ]]; then
+            fail "$label is not a symlink: $target"
+        else
+            fail "$label is missing: $target"
+        fi
+        return
+    fi
+
+    if [[ $(readlink -f -- "$target") == "$source_path" ]]; then
+        pass "$label resolves to $source_path"
+    else
+        fail "$label resolves to $(readlink -f -- "$target"), expected $source_path"
+    fi
+}
+
+check_repository() {
+    local status
+    local submodule_status
+
+    section 'Repository and submodules'
+    if ! command -v git >/dev/null 2>&1; then
+        fail 'git is unavailable; repository and submodules cannot be checked.'
+        return
+    fi
+
+    if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        fail "repository is invalid: $ROOT_DIR"
+        return
+    fi
+    pass "repository is valid: $ROOT_DIR"
+
+    status=$(git -C "$ROOT_DIR" status --porcelain)
+    if [[ -n $status ]]; then
+        warn 'repository has uncommitted or untracked changes.'
+    else
+        pass 'repository worktree is clean.'
+    fi
+
+    while IFS= read -r submodule_status; do
+        case ${submodule_status:0:1} in
+            -) fail "submodule is uninitialized: ${submodule_status:1}" ;;
+            U) fail "submodule has merge conflicts: ${submodule_status:1}" ;;
+            +) warn "submodule differs from its recorded commit: ${submodule_status:1}" ;;
+            ' ') pass "submodule initialized: ${submodule_status:1}" ;;
+            *) warn "unrecognized submodule status: $submodule_status" ;;
+        esac
+    done < <(git -C "$ROOT_DIR" submodule status --recursive)
+}
+
+check_config_links() {
+    section 'Configuration links'
+    check_link 'bat config' "$ROOT_DIR/bat" "$HOME/.config/bat"
+    check_link 'bottom config' "$ROOT_DIR/bottom" "$HOME/.config/bottom"
+    check_link 'k9s config' "$ROOT_DIR/k9s" "$HOME/.config/k9s"
+    check_link 'lazygit config' "$ROOT_DIR/lazygit" "$HOME/.config/lazygit"
+    check_link 'nvim config' "$ROOT_DIR/nvim" "$HOME/.config/nvim"
+    check_link 'tmux config' "$ROOT_DIR/tmux" "$HOME/.config/tmux"
+
+    if [[ -L $HOME/.config/lazydocker ]]; then
+        check_link 'lazydocker config' "$ROOT_DIR/lazydocker" "$HOME/.config/lazydocker"
+    elif [[ -e $HOME/.config/lazydocker ]]; then
+        warn 'lazydocker config is a real path; bootstrap will offer a backup before linking it.'
+    else
+        warn 'lazydocker config is not linked yet.'
+    fi
+}
+
+check_packages() {
+    local package
+    local -a missing=()
+
+    section 'Packages'
+    if [[ ! -f $ROOT_DIR/bootstrap/packages.pacman ]]; then
+        fail 'Pacman package manifest is missing.'
+        return
+    fi
+
+    if ! command -v pacman >/dev/null 2>&1; then
+        warn 'Pacman is unavailable; package manifest cannot be checked.'
+        return
+    fi
+
+    while IFS= read -r package || [[ -n $package ]]; do
+        [[ -z $package || ${package:0:1} == '#' ]] && continue
+        pacman -Qq "$package" >/dev/null 2>&1 || missing+=("$package")
+    done <"$ROOT_DIR/bootstrap/packages.pacman"
+
+    if ((${#missing[@]} == 0)); then
+        pass 'all packages in bootstrap/packages.pacman are installed.'
+    else
+        fail "missing Pacman packages: ${missing[*]}"
+    fi
+}
+
+check_commands() {
+    local command
+    local -a commands=(
+        bash zsh git tmux fzf fd rg bat eza delta jq glow chafa less curl
+        python nvim lazygit lazydocker zoxide ssh openssl tldr wl-copy docker
+        kubectl kubectx kubens k9s pgrep awk grep sed tr
+    )
+
+    section 'Commands'
+    for command in "${commands[@]}"; do
+        check_command "$command"
+    done
+}
+
+check_theme() {
+    local asset
+    local -a assets=(
+        'bat/themes/Catppuccin Mocha.tmTheme'
+        'bat/themes/Catppuccin Latte.tmTheme'
+        'k9s/skins/catppuccin-mocha-transparent.yaml'
+    )
+
+    section 'Theme'
+    for asset in "${assets[@]}"; do
+        if [[ -f $ROOT_DIR/$asset ]] && git -C "$ROOT_DIR" ls-files --error-unmatch -- "$asset" >/dev/null 2>&1; then
+            pass "repository-owned theme asset: $asset"
+        else
+            fail "missing repository-owned theme asset: $asset"
+        fi
+    done
+
+    if [[ -f $ROOT_DIR/tmux/plugins/catppuccin/catppuccin.tmux ]]; then
+        pass 'Catppuccin tmux plugin is available.'
+    else
+        fail 'Catppuccin tmux plugin is unavailable.'
+    fi
+
+    warn 'theme-set and native fzf/Delta theme indirection are scheduled for Checkpoint E.'
+}
+
+check_git() {
+    section 'Git'
+    if [[ -f $HOME/.gitconfig ]]; then
+        pass 'machine-local ~/.gitconfig exists.'
+    else
+        warn 'machine-local ~/.gitconfig is absent.'
+    fi
+
+    if [[ -e $HOME/.config/git ]]; then
+        warn 'Git XDG configuration exists before Checkpoint D migration.'
+    else
+        warn 'shared Git XDG configuration is scheduled for Checkpoint D.'
+    fi
+
+    if [[ -f $ROOT_DIR/delta.gitconfig ]]; then
+        pass 'legacy repository Delta config exists.'
+    else
+        warn 'legacy repository Delta config is absent.'
+    fi
+}
+
+check_zsh() {
+    local expected_source="source \"$ROOT_DIR/zsh/main.zsh\""
+    local plugin
+    local -a plugins=(
+        powerlevel10k
+        fast-syntax-highlighting
+        zsh-autosuggestions
+        zsh-fzf-history-search
+        fzf-tab
+    )
+
+    section 'Zsh'
+    if [[ -f $HOME/.zshrc ]] && grep -Fxq "$expected_source" "$HOME/.zshrc"; then
+        pass 'legacy ~/.zshrc sources the repository startup file.'
+    else
+        fail 'legacy ~/.zshrc does not source the repository startup file.'
+    fi
+
+    if zsh -n "$ROOT_DIR/zsh/main.zsh"; then
+        pass 'zsh/main.zsh passes syntax validation.'
+    else
+        fail 'zsh/main.zsh fails syntax validation.'
+    fi
+
+    for plugin in "${plugins[@]}"; do
+        if [[ -d $ROOT_DIR/zsh/plugins/$plugin ]]; then
+            pass "Zsh plugin is available: $plugin"
+        else
+            fail "Zsh plugin is unavailable: $plugin"
+        fi
+    done
+
+    if [[ -e $HOME/.config/zsh ]]; then
+        warn 'XDG Zsh configuration exists before Checkpoint C migration.'
+    else
+        warn 'XDG Zsh migration is scheduled for Checkpoint C.'
+    fi
+}
+
+check_tmux() {
+    section 'tmux'
+    if [[ -f $ROOT_DIR/tmux/tmux.conf ]]; then
+        pass 'tmux configuration file exists.'
+    else
+        fail 'tmux configuration file is missing.'
+    fi
+
+    if grep -Fxq 'set-option -g prefix C-s' "$ROOT_DIR/tmux/tmux.conf"; then
+        pass 'tmux prefix is C-s.'
+    else
+        fail 'tmux prefix C-s is not configured.'
+    fi
+
+    if [[ -f $ROOT_DIR/tmux/plugins/extrakto/extrakto.tmux ]]; then
+        pass 'Extrakto tmux plugin is available.'
+    else
+        fail 'Extrakto tmux plugin is unavailable.'
+    fi
+
+    if grep -Fq 'bind-key f run-shell' "$ROOT_DIR/tmux/tmux.conf" \
+        && grep -Fq 'bind-key s run-shell' "$ROOT_DIR/tmux/tmux.conf" \
+        && grep -Fq 'bind-key w run-shell' "$ROOT_DIR/tmux/tmux.conf"; then
+        pass 'tmux workspace, session, and window picker bindings are configured.'
+    else
+        fail 'one or more tmux picker bindings are missing.'
+    fi
+}
+
+main() {
+    case ${1:-} in
+        '') ;;
+        -h|--help)
+            printf 'Usage: %s\n' "${0##*/}"
+            return
+            ;;
+        *)
+            printf 'Usage: %s\n' "${0##*/}" >&2
+            return 2
+            ;;
+    esac
+
+    check_repository
+    check_config_links
+    check_packages
+    check_commands
+    check_theme
+    check_git
+    check_zsh
+    check_tmux
+
+    printf '\nSummary: %d failure(s), %d warning(s)\n' "$failures" "$warnings"
+    ((failures == 0))
+}
+
+main "$@"
