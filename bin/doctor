@@ -320,6 +320,12 @@ check_tmux() {
         fail 'Extrakto tmux plugin is unavailable.'
     fi
 
+    if [[ -x $ROOT_DIR/tmux/scripts/popup ]]; then
+        pass 'tmux popup helper is available.'
+    else
+        fail 'tmux popup helper is unavailable.'
+    fi
+
     if grep -Fq 'bind-key f run-shell' "$ROOT_DIR/tmux/tmux.conf" \
         && grep -Fq 'bind-key s run-shell' "$ROOT_DIR/tmux/tmux.conf" \
         && grep -Fq 'bind-key w run-shell' "$ROOT_DIR/tmux/tmux.conf"; then

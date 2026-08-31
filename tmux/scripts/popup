@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+title=''
+width=''
+height=''
+cwd=''
+ignore_failure=false
+
+usage() {
+    printf 'Usage: %s --title <title> [--width <width>] [--height <height>] [--cwd <path>] [--ignore-failure] -- <command> [args...]\n' "${0##*/}"
+}
+
+while (($# > 0)); do
+    case $1 in
+        --title)
+            title=${2:?missing title}
+            shift 2
+            ;;
+        --width)
+            width=${2:?missing width}
+            shift 2
+            ;;
+        --height)
+            height=${2:?missing height}
+            shift 2
+            ;;
+        --cwd)
+            cwd=${2:?missing directory}
+            shift 2
+            ;;
+        --ignore-failure)
+            ignore_failure=true
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+[[ -n $title && $# -gt 0 ]] || {
+    usage >&2
+    exit 2
+}
+
+pane=${TMUX_PANE:-$(tmux display-message -p -F '#{pane_id}')}
+client=$(tmux display-message -p -F '#{client_name}')
+cwd=${cwd:-$(tmux display-message -p -t "$pane" -F '#{pane_current_path}')}
+
+popup_args=(display-popup -E -e SHELL=/bin/bash -t "$pane" -d "$cwd" -T "$title")
+[[ -n $client ]] && popup_args+=(-c "$client")
+[[ -n $width ]] && popup_args+=(-w "$width")
+[[ -n $height ]] && popup_args+=(-h "$height")
+
+if "$ignore_failure"; then
+    printf -v command '%q ' "$@"
+    tmux "${popup_args[@]}" "($command) || true"
+else
+    tmux "${popup_args[@]}" "$@"
+fi
