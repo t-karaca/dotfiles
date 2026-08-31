@@ -141,13 +141,34 @@ install_packages() {
 }
 
 initialize_submodules() {
+    local line
+    local marker
+    local path
+    local found_uninitialized=false
+
     log '==> Initializing submodules'
     if ! command -v git >/dev/null 2>&1; then
         warn 'Git is unavailable; submodules were not initialized.'
         return
     fi
 
-    run git -C "$ROOT_DIR" submodule update --init --recursive
+    while IFS= read -r line; do
+        marker=${line:0:1}
+        read -r _ path _ <<<"${line:1}"
+        case $marker in
+            -)
+                found_uninitialized=true
+                run git -C "$ROOT_DIR" submodule update --init --recursive -- "$path"
+                ;;
+            +|U)
+                warn "Preserving user-managed submodule state: ${line:1}"
+                ;;
+        esac
+    done < <(git -C "$ROOT_DIR" submodule status --recursive)
+
+    if ! "$found_uninitialized"; then
+        log 'All submodules are already initialized or user-managed.'
+    fi
 }
 
 link_config() {
@@ -212,6 +233,70 @@ link_configs() {
     link_config "$ROOT_DIR/fzf" "$HOME/.config/fzf"
     link_config "$ROOT_DIR/zsh" "$HOME/.config/zsh"
     link_config "$ROOT_DIR/zsh/.zshenv" "$HOME/.zshenv"
+}
+
+migrate_local_git_config() {
+    local target="$HOME/.gitconfig"
+    local backup
+    local temporary
+    local key
+    local has_shared_settings=false
+    local -a shared_keys=(
+        core.pager
+        interactive.difffilter
+        delta.navigate
+        delta.syntax-theme
+        merge.tool
+        merge.conflictstyle
+        init.defaultbranch
+        pull.rebase
+    )
+
+    log '==> Removing duplicated shared Git settings from local config'
+    if [[ ! -f $target ]]; then
+        log 'No machine-local ~/.gitconfig requires migration.'
+        return
+    fi
+
+    for key in "${shared_keys[@]}"; do
+        if git config --file "$target" --get-all "$key" >/dev/null 2>&1; then
+            has_shared_settings=true
+            break
+        fi
+    done
+
+    if ! "$has_shared_settings"; then
+        log 'No duplicated shared Git settings found in ~/.gitconfig.'
+        return
+    fi
+
+    backup="$target.backup-$(date +%Y%m%d%H%M%S)"
+    if [[ -e $backup || -L $backup ]]; then
+        warn "Backup path already exists: $backup"
+        return
+    fi
+
+    if "$DRY_RUN"; then
+        log "[dry-run] would back up $target to $backup"
+        log '[dry-run] would remove shared pager, Delta, merge, init, and pull settings from ~/.gitconfig'
+        return
+    fi
+
+    if ! confirm "Back up $target and remove duplicated shared Git settings?"; then
+        log 'Leaving duplicated local Git settings unchanged.'
+        return
+    fi
+
+    temporary=$(mktemp "${target}.tmp.XXXXXX")
+    trap 'rm -f -- "$temporary"' RETURN
+    cp -p -- "$target" "$backup"
+    cp -p -- "$target" "$temporary"
+    for key in "${shared_keys[@]}"; do
+        git config --file "$temporary" --unset-all "$key" >/dev/null 2>&1 || true
+    done
+    mv -- "$temporary" "$target"
+    trap - RETURN
+    log "Backed up local Git configuration to $backup"
 }
 
 initialize_theme() {
@@ -285,6 +370,7 @@ main() {
     install_packages
     initialize_submodules
     link_configs
+    migrate_local_git_config
     initialize_theme
     retire_legacy_zshrc
     build_caches_and_verify_assets

@@ -226,6 +226,10 @@ check_theme() {
 
 check_git() {
     local git_source
+    local shared_pager
+    local shared_filter
+    local local_pager
+    local local_filter
 
     section 'Git'
     git_source=$(resolve_path "$ROOT_DIR/git")
@@ -247,6 +251,26 @@ check_git() {
         pass 'shared Git configuration exists.'
     else
         fail 'shared Git configuration is missing.'
+    fi
+
+    shared_pager=$(git config --file "$HOME/.config/git/config" --includes --get core.pager 2>/dev/null || true)
+    shared_filter=$(git config --file "$HOME/.config/git/config" --includes --get interactive.difffilter 2>/dev/null || true)
+    local_pager=$(git config --file "$HOME/.gitconfig" --get core.pager 2>/dev/null || true)
+    local_filter=$(git config --file "$HOME/.gitconfig" --get interactive.difffilter 2>/dev/null || true)
+    if [[ $shared_pager == delta && -z $local_pager ]]; then
+        pass 'Git uses the shared Delta pager.'
+    elif [[ $local_pager == *delta-wrapped* ]]; then
+        fail 'Git still points to the retired delta-wrapped command.'
+    else
+        fail 'Git does not use the shared Delta pager.'
+    fi
+
+    if [[ $shared_filter == 'delta --color-only' && -z $local_filter ]]; then
+        pass 'Git uses the shared Delta interactive filter.'
+    elif [[ $local_filter == *delta-wrapped* ]]; then
+        fail 'Git still points to the retired delta-wrapped interactive filter.'
+    else
+        fail 'Git does not use the shared Delta interactive filter.'
     fi
 
 }
