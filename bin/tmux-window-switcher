@@ -4,25 +4,32 @@ set -e
 
 list_windows_query="#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}"
 
-next_action='tmux-move-window next {1}'
-previous_action='tmux-move-window previous {1}'
+next_action='test -z {q} && tmux-move-window next {1}'
+previous_action='test -z {q} && tmux-move-window previous {1}'
 kill_action='tmux kill-window -t {1}'
-# reload_action='tmux list-windows -F "#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}"'
 reload_action="tmux list-windows -F '$list_windows_query'"
 
-help_label=" ctrl+p 🡒 Move window down   ctrl+n 🡒 Move window up   ctrl+x 🡒 Kill window "
+help_label=" ctrl+j 🡒 Move window down   ctrl+k 🡒 Move window up   ctrl+x 🡒 Kill window "
 
-# windows=$(tmux list-windows -F "#{window_index} #{pane_title}#{?#{>=:#{window_panes},2},  [#{window_panes} panes],}")
 windows=$(tmux list-windows -F "$list_windows_query")
 active_index=$(tmux display-message -p -F "#{window_index}")
 
+if [[ "$(theme-set status)" = "dark" ]]; then
+    bg_color="#181824"
+else
+    bg_color="#e6e9ef"
+fi
+
 selected_window=$(
     echo "$windows" | fzf \
+        --border rounded \
+        --border-label $'\e[44;30m Windows \e[0m' \
+        --color "border:$bg_color,bg:$bg_color" \
+        --layout reverse \
         --accept-nth 1 \
-        --border top \
-        --border-label "$help_label" \
+        --footer "$help_label" \
         --sync \
-        --bind "start:pos($active_index),ctrl-p:execute-silent($previous_action)+reload-sync($reload_action)+down,ctrl-n:execute-silent($next_action)+reload-sync($reload_action)+up,ctrl-x:execute-silent($kill_action)+reload-sync($reload_action)+down"
+        --bind "start:pos($active_index),ctrl-j:execute-silent($next_action)+reload-sync($reload_action)+down,ctrl-k:execute-silent($previous_action)+reload-sync($reload_action)+up,ctrl-x:execute-silent($kill_action)+reload-sync($reload_action)+down"
 )
 
 tmux select-window -t "$selected_window"

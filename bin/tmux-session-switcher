@@ -5,8 +5,22 @@ set -e
 sessions=$(tmux list-sessions -F "#{session_name}")
 current_session=$(tmux display-message -p -F "#{session_name}")
 
-active_index=$(echo "$sessions" | grep -n -e "^$current_session\$" | awk -F: '{ print $1 }')
+active_index=$(echo "$sessions" | grep --line-number -Fx "$current_session" | awk -F: '{ print $1 }')
 
-selected_session=$(echo "$sessions" | fzf --bind "load:pos($active_index)")
+if [[ "$(theme-set status)" = "dark" ]]; then
+    bg_color="#181824"
+else
+    bg_color="#e6e9ef"
+fi
+
+selected_session=$(
+    echo "$sessions" | fzf \
+        --border rounded \
+        --border-label $'\e[44;30m Sessions \e[0m' \
+        --color "border:$bg_color,bg:$bg_color" \
+        --layout reverse \
+        --bind "load:pos($active_index)"
+)
+[[ -n $selected_session ]] || exit 0
 
 tmux switch-client -t "$selected_session"
