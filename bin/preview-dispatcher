@@ -2,7 +2,12 @@
 
 set -euo pipefail
 
-MAX_LINES=200
+MAX_LINES=${PREVIEW_MAX_LINES:-200}
+TIMEOUT_SECONDS=${PREVIEW_TIMEOUT_SECONDS:-2}
+MAX_HEX_BYTES=${PREVIEW_MAX_HEX_BYTES:-256}
+file_description=''
+mime_type=''
+archive_kind=''
 
 usage() {
     printf 'Usage: %s <path>\n' "${0##*/}"
@@ -13,47 +18,310 @@ fail() {
     exit 1
 }
 
-require_command() {
+need() {
     command -v "$1" >/dev/null 2>&1 || fail "required command is unavailable: $1"
 }
 
+validate_limits() {
+    [[ $MAX_LINES =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_MAX_LINES must be a positive integer'
+    [[ $TIMEOUT_SECONDS =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_TIMEOUT_SECONDS must be a positive integer'
+    [[ $MAX_HEX_BYTES =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_MAX_HEX_BYTES must be a positive integer'
+}
+
+run_command() {
+    local label=$1
+    local command_status
+    shift
+
+    set +e
+    timeout --foreground "${TIMEOUT_SECONDS}s" "$@"
+    command_status=$?
+    set -e
+
+    case $command_status in
+        0) ;;
+        124|137) fail "$label timed out after ${TIMEOUT_SECONDS}s" ;;
+        *) fail "$label failed (exit $command_status)" ;;
+    esac
+}
+
+run_stream() {
+    local label=$1
+    local -a pipeline_status
+    shift
+
+    set +e
+    timeout --foreground "${TIMEOUT_SECONDS}s" "$@" | sed -n "1,${MAX_LINES}p"
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+
+    ((pipeline_status[1] == 0)) || fail "$label output failed"
+    case ${pipeline_status[0]} in
+        0) ;;
+        124|137) fail "$label timed out after ${TIMEOUT_SECONDS}s" ;;
+        *) fail "$label failed (exit ${pipeline_status[0]})" ;;
+    esac
+}
+
+read_file_metadata() {
+    need file
+    file_description=$(file --brief -- "$target" 2>/dev/null || true)
+    mime_type=$(file --brief --mime-type -- "$target" 2>/dev/null || true)
+}
+
+print_stat_metadata() {
+    stat --printf='Type: %F\nMode: %A\nSize: %s bytes\n' -- "$target"
+}
+
+preview_symlink() {
+    local link_target
+
+    link_target=$(readlink -- "$target" 2>/dev/null || printf '<unreadable>')
+    printf 'Preview: symbolic link\nPath: %s\nTarget: %s\n' "$target" "$link_target"
+    print_stat_metadata
+    if [[ ! -e $target ]]; then
+        printf 'Status: broken or unresolved link\n'
+    fi
+}
+
+preview_nonregular() {
+    printf 'Preview: metadata only\nPath: %s\n' "$target"
+    print_stat_metadata
+    printf 'Content was not read because this is not a regular file.\n'
+}
+
+has_private_key_marker() {
+    local description_lower=${file_description,,}
+    local target_lower=${target,,}
+    local -a pipeline_status
+
+    case $target_lower in
+        *.key|*.p12|*.pfx) return 0 ;;
+    esac
+
+    case $description_lower in
+        *private\ key*|*pkcs#12*|*personal\ information\ exchange*) return 0 ;;
+    esac
+
+    set +e
+    dd if="$target" bs=8192 count=1 status=none 2>/dev/null |
+        LC_ALL=C grep -aEq -- '-----BEGIN (ENCRYPTED )?([A-Z]+ )?PRIVATE KEY-----|-----BEGIN PGP PRIVATE KEY BLOCK-----'
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+    ((pipeline_status[1] == 0))
+}
+
+preview_sensitive() {
+    printf 'Preview suppressed: cryptographic material is not displayed.\n'
+    printf 'Path: %s\nType: %s\n' "$target" "${file_description:-unknown}"
+    printf 'No password prompt was attempted and no key material was printed.\n'
+}
+
 preview_directory() {
-    require_command eza
-    eza --tree --level=2 --color=always --icons=always -- "$1" | sed -n "1,${MAX_LINES}p"
+    need eza
+    run_stream 'directory preview' eza --tree --level=2 --color=always --icons=always -- "$target"
 }
 
 preview_text() {
-    require_command bat
-    bat --paging=never --style=numbers --color=always --line-range=":${MAX_LINES}" -- "$1"
+    need bat
+    run_command 'text preview' bat --paging=never --style=numbers --color=always --line-range=":${MAX_LINES}" -- "$target"
 }
 
 preview_json() {
-    require_command jq
-    jq --color-output . "$1" | sed -n "1,${MAX_LINES}p"
+    local output_file
+    local error_file
+    local jq_status
+
+    need jq
+    output_file=$(mktemp "${TMPDIR:-/tmp}/preview-dispatcher-json.XXXXXX") || fail 'could not create JSON preview buffer'
+    error_file=$(mktemp "${TMPDIR:-/tmp}/preview-dispatcher-json-error.XXXXXX") || {
+        rm -f -- "$output_file"
+        fail 'could not create JSON error buffer'
+    }
+
+    set +e
+    timeout --foreground "${TIMEOUT_SECONDS}s" jq --color-output . -- "$target" >"$output_file" 2>"$error_file"
+    jq_status=$?
+    set -e
+
+    if ((jq_status == 0)); then
+        sed -n "1,${MAX_LINES}p" "$output_file"
+    else
+        rm -f -- "$output_file" "$error_file"
+        if ((jq_status == 124 || jq_status == 137)); then
+            printf 'preview-dispatcher: JSON preview timed out; showing a bounded text preview.\n' >&2
+        else
+            printf 'preview-dispatcher: invalid or unsupported JSON; showing a text preview.\n' >&2
+        fi
+        preview_text
+        return
+    fi
+
+    rm -f -- "$output_file" "$error_file"
 }
 
 preview_markdown() {
-    require_command glow
-    # Glow only renders color when writing directly to the preview terminal.
-    glow --width "${FZF_PREVIEW_COLUMNS:-80}" "$1"
+    local columns=${FZF_PREVIEW_COLUMNS:-80}
+
+    [[ $columns =~ ^[1-9][0-9]*$ ]] || columns=80
+    need glow
+    # Glow must write directly to the preview terminal to preserve colors.
+    run_command 'Markdown preview' glow --width "$columns" -- "$target"
 }
+
+preview_image() {
+    local columns=${FZF_PREVIEW_COLUMNS:-80}
+    local lines=${FZF_PREVIEW_LINES:-20}
+
+    [[ $columns =~ ^[1-9][0-9]*$ ]] || columns=80
+    [[ $lines =~ ^[1-9][0-9]*$ ]] || lines=20
+    need chafa
+    run_command 'image preview' chafa --format=symbols --colors=256 --size="${columns}x${lines}" -- "$target"
+}
+
+preview_pdf() {
+    need pdfinfo
+    run_stream 'PDF metadata preview' pdfinfo -- "$target"
+}
+
+preview_archive() {
+    case $archive_kind in
+        tar)
+            need tar
+            run_stream 'archive listing' tar --list --file="$target"
+            ;;
+        targz)
+            need tar
+            run_stream 'archive listing' tar --list --gzip --file="$target"
+            ;;
+        tarbz2)
+            need tar
+            run_stream 'archive listing' tar --list --bzip2 --file="$target"
+            ;;
+        tarxz)
+            need tar
+            run_stream 'archive listing' tar --list --xz --file="$target"
+            ;;
+        tarzst)
+            need tar
+            run_stream 'archive listing' tar --list --zstd --file="$target"
+            ;;
+        zip)
+            need unzip
+            run_stream 'archive listing' unzip -l -- "$target"
+            ;;
+        bsdtar)
+            need bsdtar
+            run_stream 'archive listing' bsdtar --list --file "$target"
+            ;;
+        *)
+            fail 'unsupported archive format'
+            ;;
+    esac
+}
+
+detect_archive() {
+    local target_lower=${target,,}
+
+    case $target_lower in
+        *.tar) archive_kind=tar ;;
+        *.tar.gz|*.tgz) archive_kind=targz ;;
+        *.tar.bz2|*.tbz|*.tbz2) archive_kind=tarbz2 ;;
+        *.tar.xz|*.txz) archive_kind=tarxz ;;
+        *.tar.zst|*.tzst) archive_kind=tarzst ;;
+        *.zip|*.jar|*.war|*.ear|*.cbz) archive_kind=zip ;;
+        *.7z|*.rar) archive_kind=bsdtar ;;
+    esac
+
+    [[ -n $archive_kind ]] && return
+    case $mime_type in
+        application/zip|application/java-archive) archive_kind=zip ;;
+        application/x-tar) archive_kind=tar ;;
+        application/x-7z-compressed|application/vnd.rar) archive_kind=bsdtar ;;
+    esac
+}
+
+is_text() {
+    local description_lower=${file_description,,}
+
+    case $mime_type in
+        text/*|application/json|application/xml|application/javascript|application/x-sh|application/x-shellscript|inode/x-empty)
+            return 0
+            ;;
+    esac
+    case $description_lower in
+        *text*|*source*|*empty*) return 0 ;;
+    esac
+    return 1
+}
+
+case ${1:-} in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+esac
 
 [[ $# == 1 ]] || {
     usage >&2
     exit 2
 }
 
+validate_limits
 target=$1
-[[ -e $target ]] || fail "path does not exist: $target"
+[[ -e $target || -L $target ]] || fail "path does not exist: $target"
+
+if [[ -L $target ]]; then
+    preview_symlink
+    exit 0
+fi
+
 [[ -r $target ]] || fail "path is not readable: $target"
 
 if [[ -d $target ]]; then
-    preview_directory "$target"
-    exit
+    preview_directory
+    exit 0
+fi
+
+if [[ ! -f $target ]]; then
+    preview_nonregular
+    exit 0
+fi
+
+read_file_metadata
+if has_private_key_marker; then
+    preview_sensitive
+    exit 0
+fi
+
+detect_archive
+if [[ -n $archive_kind ]]; then
+    preview_archive
+    exit 0
+fi
+
+if [[ $mime_type == image/* ]]; then
+    preview_image
+    exit 0
+fi
+
+if [[ $mime_type == application/pdf ]]; then
+    preview_pdf
+    exit 0
 fi
 
 case ${target,,} in
-    *.json) preview_json "$target" ;;
-    *.md|*.markdown) preview_markdown "$target" ;;
-    *) preview_text "$target" ;;
+    *.json) preview_json ;;
+    *.md|*.markdown) preview_markdown ;;
+    *.yaml|*.yml) preview_text ;;
+    *.pdf) preview_pdf ;;
+    *)
+        if is_text; then
+            preview_text
+        else
+            printf 'Preview: binary file\nPath: %s\nType: %s\nHex sample (first %s bytes):\n' \
+                "$target" "${file_description:-unknown}" "$MAX_HEX_BYTES"
+            run_command 'binary preview' od -An -tx1 -v -N "$MAX_HEX_BYTES" -- "$target"
+        fi
+        ;;
 esac
