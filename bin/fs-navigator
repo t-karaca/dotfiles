@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+LIST=$ROOT_DIR/bin/fs-list
+PREVIEW=$ROOT_DIR/bin/preview-dispatcher
+
+root_arg=''
+cwd_arg=''
+git_root_arg=''
+hidden=false
+debug=${FZF_RECORD_DEBUG:-0}
+
+usage() {
+    cat <<'EOF'
+Usage: fs-navigator [--root DIRECTORY] [--cwd DIRECTORY]
+                    [--git-root DIRECTORY] [--hidden] [--debug]
+
+Browse direct children with fzf. Enter navigates into real directories and
+returns an insert action for other entries. ctrl-p goes to the parent,
+ctrl-a accepts the current directory, ctrl-h toggles hidden entries, alt-r
+returns to root, and alt-g switches to the detected Git root.
+
+Final actions are written as a NUL-delimited protocol:
+  insert<NUL>/absolute/path<NUL>
+  cd<NUL>/absolute/directory<NUL>
+EOF
+}
+
+fail() {
+    printf 'fs-navigator: %s\n' "$1" >&2
+    exit 1
+}
+
+die() {
+    printf 'fs-navigator: %s\n' "$1" >&2
+    exit 2
+}
+
+debug_message() {
+    if [[ $debug == 1 ]]; then
+        printf 'fs-navigator: %s\n' "$1" >&2
+    fi
+}
+
+supported_path() {
+    local value=$1
+    local LC_ALL=C
+
+    [[ ! $value =~ [[:cntrl:]] ]]
+}
+
+resolve_directory() {
+    local candidate=$1
+    local resolved
+
+    supported_path "$candidate" || return 1
+    resolved=$(cd -- "$candidate" 2>/dev/null && pwd -P) || return 1
+    supported_path "$resolved" || return 1
+    [[ -d $resolved && -r $resolved ]] || return 1
+    printf '%s' "$resolved"
+}
+
+display_path() {
+    local path=$1
+
+    if [[ -n ${HOME:-} && ($path == "$HOME" || $path == "$HOME"/*) ]]; then
+        printf '~%s' "${path#"$HOME"}"
+    else
+        printf '%s' "$path"
+    fi
+}
+
+emit_action() {
+    local action=$1
+    local path=$2
+    local destination=${FS_NAVIGATOR_ACTION_FILE:-}
+
+    if [[ -n $destination ]]; then
+        printf '%s\0%s\0' "$action" "$path" >"$destination"
+    else
+        printf '%s\0%s\0' "$action" "$path"
+    fi
+}
+
+parent_directory() {
+    [[ $cwd != / ]] || return 0
+    cwd=${cwd%/*}
+    [[ -n $cwd ]] || cwd=/
+}
+
+while (($# > 0)); do
+    case $1 in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --root)
+            (($# >= 2)) || die '--root requires a directory'
+            root_arg=$2
+            shift 2
+            ;;
+        --root=*)
+            root_arg=${1#*=}
+            shift
+            ;;
+        --cwd)
+            (($# >= 2)) || die '--cwd requires a directory'
+            cwd_arg=$2
+            shift 2
+            ;;
+        --cwd=*)
+            cwd_arg=${1#*=}
+            shift
+            ;;
+        --git-root)
+            (($# >= 2)) || die '--git-root requires a directory'
+            git_root_arg=$2
+            shift 2
+            ;;
+        --git-root=*)
+            git_root_arg=${1#*=}
+            shift
+            ;;
+        --hidden|-H)
+            hidden=true
+            shift
+            ;;
+        --debug)
+            debug=1
+            shift
+            ;;
+        --)
+            shift
+            (($# == 1 && -z $cwd_arg)) || die 'expected one starting directory'
+            cwd_arg=$1
+            shift
+            ;;
+        -*)
+            die "unknown option: $1"
+            ;;
+        *)
+            [[ -z $cwd_arg ]] || die 'expected one starting directory'
+            cwd_arg=$1
+            shift
+            ;;
+    esac
+done
+
+initial_cwd=$(pwd -P)
+cwd=$(resolve_directory "${cwd_arg:-$initial_cwd}") || fail "starting directory is unavailable: ${cwd_arg:-$initial_cwd}"
+root=$(resolve_directory "${root_arg:-$cwd}") || fail "root directory is unavailable: ${root_arg:-$cwd}"
+
+if [[ -n $git_root_arg ]]; then
+    git_root=$(resolve_directory "$git_root_arg") || fail "Git root directory is unavailable: $git_root_arg"
+else
+    git_root=''
+    git_candidate=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
+    if [[ -n $git_candidate ]] && git_root=$(resolve_directory "$git_candidate"); then
+        :
+    else
+        git_root=''
+    fi
+fi
+
+command -v fzf >/dev/null 2>&1 || fail 'fzf is required'
+[[ -x $LIST ]] || fail "provider is unavailable: $LIST"
+[[ -x $PREVIEW ]] || fail "preview dispatcher is unavailable: $PREVIEW"
+
+records_file=$(mktemp "${TMPDIR:-/tmp}/fs-navigator-records.XXXXXX")
+selection_file=$(mktemp "${TMPDIR:-/tmp}/fs-navigator-selection.XXXXXX")
+trap 'rm -f -- "$records_file" "$selection_file"' EXIT
+
+while :; do
+    list_args=()
+    [[ $hidden == true ]] && list_args+=(--hidden)
+    [[ $debug == 1 ]] && list_args+=(--debug)
+    list_args+=("$cwd")
+    if ! "$LIST" "${list_args[@]}" >"$records_file"; then
+        fail "could not list directory: $cwd"
+    fi
+
+    cwd_display=$(display_path "$cwd")
+    root_display=$(display_path "$root")
+    if [[ -n $git_root ]]; then
+        git_root_display=$(display_path "$git_root")
+    else
+        git_root_display='unavailable'
+    fi
+    if [[ $hidden == true ]]; then
+        hidden_state='[hidden]'
+    else
+        hidden_state=''
+    fi
+    printf -v header 'cwd: %s\nroot: %s\ngit root: %s %s\nctrl-p parent  ctrl-a accept-dir  ctrl-h hidden  alt-r root  alt-g git-root' \
+        "$cwd_display" "$root_display" "$git_root_display" "$hidden_state"
+
+    : >"$selection_file"
+    set +e
+    fzf \
+        --ansi \
+        --delimiter=$'\t' \
+        --with-nth=3 \
+        --expect=ctrl-p,ctrl-a,ctrl-h,alt-r,alt-g \
+        --preview="$PREVIEW {1}" \
+        --preview-window=right,50%,border-left \
+        --prompt='Browse > ' \
+        --border-label=" Browse: $cwd_display " \
+        --header="$header" \
+        <"$records_file" >"$selection_file"
+    fzf_status=$?
+    set -e
+
+    case $fzf_status in
+        0) ;;
+        1|130)
+            exit 0
+            ;;
+        *)
+            fail "fzf failed (exit $fzf_status)"
+            ;;
+    esac
+
+    selected_lines=()
+    mapfile -t selected_lines <"$selection_file"
+    ((${#selected_lines[@]} > 0)) || exit 0
+
+    action_key=''
+    record=''
+    case ${selected_lines[0]} in
+        ctrl-p|ctrl-a|ctrl-h|alt-r|alt-g)
+            action_key=${selected_lines[0]}
+            ;;
+        '')
+            ((${#selected_lines[@]} >= 2)) || exit 0
+            record=${selected_lines[1]}
+            ;;
+        *)
+            record=${selected_lines[0]}
+            ;;
+    esac
+
+    case $action_key in
+        ctrl-p)
+            parent_directory
+            continue
+            ;;
+        ctrl-a)
+            emit_action cd "$cwd"
+            exit 0
+            ;;
+        ctrl-h)
+            if [[ $hidden == true ]]; then
+                hidden=false
+            else
+                hidden=true
+            fi
+            continue
+            ;;
+        alt-r)
+            cwd=$root
+            continue
+            ;;
+        alt-g)
+            if [[ -n $git_root ]]; then
+                cwd=$git_root
+            else
+                debug_message 'Git root is unavailable'
+            fi
+            continue
+            ;;
+    esac
+
+    selected=${record%%$'\t'*}
+    [[ -n $selected && $selected == /* ]] || fail 'fzf returned a malformed filesystem record'
+    supported_path "$selected" || fail 'fzf returned an unsupported result path'
+
+    if [[ -d $selected && ! -L $selected ]]; then
+        cwd=$(resolve_directory "$selected") || fail "selected directory is unavailable: $selected"
+        continue
+    fi
+
+    emit_action insert "$selected"
+    exit 0
+done

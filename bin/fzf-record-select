@@ -120,9 +120,8 @@ case $output in
     *) die "invalid output mode '$output' (expected result or record)" ;;
 esac
 
-# fzf cannot search fields hidden by --with-nth, so keep the search and display
-# fields in the presentation while excluding the raw result and metadata.
-presentation_args=(--ansi --with-nth=2,3 --nth=1,2)
+# Show only the human/eza display field. fzf filters the rendered display.
+presentation_args=(--ansi --with-nth=3)
 # The tab delimiter is appended after caller options so the field transport
 # cannot be redirected by a picker. Input and output remain line-based.
 transport_args=(--delimiter=$'\t')

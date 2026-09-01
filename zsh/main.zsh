@@ -82,6 +82,7 @@ zstyle ':completion:*' menu no
 
 source "${ZSH}/plugins/gradle/gradle.plugin.zsh"
 source "${ZSH}/env.zsh"
+source "${ZSH}/fzf/filesystem.zsh"
 source "${ZSH}/aliases.zsh"
 source "${ZSH}/functions.zsh"
 

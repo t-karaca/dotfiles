@@ -47,7 +47,7 @@ assert_file_equals "$expected" "$actual"
 
 search_record=$'search/path\tsearch field\tSearch display\tkind=text'
 printf '%s\n' 'search/path' >"$expected"
-printf '%s\n' "$search_record" | "$SELECTOR" --filter='search field' >"$actual"
+printf '%s\n' "$search_record" | "$SELECTOR" --filter='Search display' >"$actual"
 assert_file_equals "$expected" "$actual"
 
 json_record=$'data/example.json\tdata json example\t\e[38;2;249;226;175mJSON example\e[0m\tkind=json'
