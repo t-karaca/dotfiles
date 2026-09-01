@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
+cwd=$(pwd)
+display_cwd=$cwd
+if [[ -n ${HOME:-} && ($cwd == "$HOME" || $cwd == "$HOME"/*) ]]; then
+    display_cwd="~${cwd#"$HOME"}"
+fi
+
+mkdir -p /tmp/fzf-navigator/ || true
+echo "$cwd" > /tmp/fzf-navigator/cwd
+echo "$cwd" > /tmp/fzf-navigator/start-cwd
+
+selection=$(eza --oneline \
+    --icons always \
+    --color always \
+    --no-quotes | 
+fzf --layout reverse \
+    --ansi \
+    --preview "fzf-navigator-tools.sh preview {}" \
+    --preview-window "right" \
+    --preview-border none \
+    --bind "ctrl-e:transform(fzf-navigator-tools.sh navigate {})" \
+    --bind "ctrl-t:transform(fzf-navigator-tools.sh parent)" \
+    --bind "ctrl-r:transform(fzf-navigator-tools.sh start)" \
+    --footer "ctrl-e -> enter directory  ctrl-t -> parent  ctrl-r -> start dir" \
+    --prompt "$display_cwd > ")
+
+if [[ -n $selection ]]; then
+    filename=''
+    source "$ROOT_DIR/fzf-navigator-tools.sh"
+    filename=$(extract_filename "$selection")
+    printf '%s/%s\n' "${cwd%/}" "$filename"
+fi

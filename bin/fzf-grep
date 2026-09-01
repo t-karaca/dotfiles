@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+RG='rg --column --line-number --no-heading --color=always --smart-case'
+
+: | fzf \
+    --ansi \
+    --disabled \
+    --delimiter : \
+    --accept-nth=1 \
+    --bind "change:reload:test -n {q} && $RG {q} || true" \
+    --preview 'bat --color=always --highlight-line {2} {1}' \
+    --preview-window 'right,50%,+{2}+3/2,~3'
