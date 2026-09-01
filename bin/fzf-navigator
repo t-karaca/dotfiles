@@ -12,23 +12,34 @@ fi
 mkdir -p /tmp/fzf-navigator/ || true
 echo "$cwd" > /tmp/fzf-navigator/cwd
 echo "$cwd" > /tmp/fzf-navigator/start-cwd
+if git_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null); then
+    printf '%s\n' "$git_root" > /tmp/fzf-navigator/git-root
+else
+    : > /tmp/fzf-navigator/git-root
+fi
+printf '%s\n' ascending > /tmp/fzf-navigator/sort-mode
 
-selection=$(eza --oneline \
-    --icons always \
-    --color always \
-    --no-quotes | 
-fzf --layout reverse \
-    --ansi \
-    --preview "fzf-navigator-tools.sh preview {}" \
-    --preview-window "right" \
-    --preview-border none \
-    --bind "ctrl-e:transform(fzf-navigator-tools.sh navigate {})" \
-    --bind "ctrl-t:transform(fzf-navigator-tools.sh parent)" \
-    --bind "ctrl-r:transform(fzf-navigator-tools.sh start)" \
-    --footer "ctrl-e -> enter directory  ctrl-t -> parent  ctrl-r -> start dir" \
-    --prompt "$display_cwd > ")
+selection=$(
+    eza --oneline --icons always --color always --sort=name --no-quotes --group-directories-first | fzf \
+        --layout reverse \
+        --ansi \
+        --scheme path \
+        --preview "fzf-navigator-tools.sh preview {}" \
+        --preview-window "right" \
+        --preview-border none \
+        --header "Sort: A-Z" \
+        --bind "ctrl-o:transform(fzf-navigator-tools.sh open {})" \
+        --bind "ctrl-e:transform(fzf-navigator-tools.sh navigate {})" \
+        --bind "ctrl-t:transform(fzf-navigator-tools.sh parent)" \
+        --bind "ctrl-r:transform(fzf-navigator-tools.sh start)" \
+        --bind "ctrl-g:transform(fzf-navigator-tools.sh git-root)" \
+        --bind "ctrl-y:transform(fzf-navigator-tools.sh toggle-sort)" \
+        --footer $'\e[30m^O\e[0m open  \e[30m^E\e[0m enter  \e[30m^T\e[0m parent  \e[30m^R\e[0m start  \e[30m^G\e[0m git root  \e[30m^Y\e[0m toggle sort' \
+        --prompt "$display_cwd > "
+)
 
 if [[ -n $selection ]]; then
+    cwd=$(< /tmp/fzf-navigator/cwd)
     filename=''
     source "$ROOT_DIR/fzf-navigator-tools.sh"
     filename=$(extract_filename "$selection")

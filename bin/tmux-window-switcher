@@ -15,15 +15,17 @@ windows=$(tmux list-windows -F "$list_windows_query")
 active_index=$(tmux display-message -p -F "#{window_index}")
 
 if [[ "$(theme-set status)" = "dark" ]]; then
+    label_begin=$'\e[48;2;180;190;254;38;2;17;17;27m'
     bg_color="#181824"
 else
+    label_begin=$'\e[48;2;114;135;253;38;2;220;224;232m'
     bg_color="#e6e9ef"
 fi
 
 selected_window=$(
     echo "$windows" | fzf \
         --border rounded \
-        --border-label $'\e[44;30m Windows \e[0m' \
+        --border-label "$label_begin Windows " \
         --color "border:$bg_color,bg:$bg_color" \
         --layout reverse \
         --accept-nth 1 \
