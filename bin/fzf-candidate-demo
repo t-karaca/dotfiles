@@ -23,7 +23,17 @@ emit_record() {
             return 1
         }
     done
-    printf '%s\t%s\t%s\t%s\0' "$result" "$search" "$display" "$metadata"
+    local LC_ALL=C
+    [[ ! $result =~ [[:cntrl:]] ]] || {
+        printf 'fzf-candidate-demo: result fields cannot contain control characters.\n' >&2
+        return 1
+    }
+    [[ $search != *$'\n'* && $search != *$'\r'* && $display != *$'\n'* && $display != *$'\r'* \
+        && $metadata != *$'\n'* && $metadata != *$'\r'* ]] || {
+        printf 'fzf-candidate-demo: non-result fields cannot contain line breaks.\n' >&2
+        return 1
+    }
+    printf '%s\t%s\t%s\t%s\n' "$result" "$search" "$display" "$metadata"
 }
 
 records() {
@@ -33,9 +43,9 @@ records() {
         $'\e[38;2;137;180;250mSpecial characters\e[0m' \
         'kind=text'
     emit_record \
-        $'notes/newline\nfilename.md' \
-        'notes newline filename' \
-        $'\e[38;2;166;227;161mNewline filename\e[0m' \
+        'notes/line-safe-filename.md' \
+        'notes line safe filename' \
+        $'\e[38;2;166;227;161mLine-safe filename\e[0m' \
         'kind=text'
     emit_record \
         'data/example.json' \
