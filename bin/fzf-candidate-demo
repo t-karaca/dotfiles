@@ -13,11 +13,16 @@ emit_record() {
     local search=$2
     local display=$3
     local metadata=$4
+    local field
+    local field_name
 
-    [[ $result != *$'\t'* ]] || {
-        printf 'fzf-candidate-demo: result fields cannot contain literal tabs.\n' >&2
-        return 1
-    }
+    for field_name in result search display metadata; do
+        field=${!field_name}
+        [[ $field != *$'\t'* ]] || {
+            printf 'fzf-candidate-demo: %s fields cannot contain literal tabs.\n' "$field_name" >&2
+            return 1
+        }
+    done
     printf '%s\t%s\t%s\t%s\0' "$result" "$search" "$display" "$metadata"
 }
 
@@ -37,6 +42,11 @@ records() {
         'data json example' \
         $'\e[38;2;249;226;175mJSON example\e[0m' \
         'kind=json'
+    emit_record \
+        '-leading/Δ file.txt' \
+        'leading dash unicode' \
+        $'\e[38;2;203;166;247mLeading dash and Unicode\e[0m' \
+        'kind=text'
 }
 
 case ${1:-} in

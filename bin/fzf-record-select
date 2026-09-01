@@ -3,24 +3,133 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: producer | %s [fzf options]\n' "${0##*/}"
+    cat <<'EOF'
+Usage: producer | fzf-record-select [--output result|record] [fzf options]
+
+Input records are NUL-delimited and have four tab-delimited fields:
+  result<TAB>search<TAB>display<TAB>metadata<NUL>
+
+The default output is one selected result per NUL. Use --output record to
+return the complete selected record. FZF_RECORD_DEBUG=1 reports skipped
+malformed records to stderr.
+EOF
+}
+
+die() {
+    printf 'fzf-record-select: %s\n' "$1" >&2
+    exit 2
+}
+
+debug_skip() {
+    if [[ ${FZF_RECORD_DEBUG:-0} == 1 ]]; then
+        printf 'fzf-record-select: skipping record %s: %s\n' "$1" "$2" >&2
+    fi
+}
+
+valid_record() {
+    local record=$1
+    local remainder=$record
+    local tab_count=0
+    local result
+
+    while [[ $remainder == *$'\t'* ]]; do
+        tab_count=$((tab_count + 1))
+        remainder=${remainder#*$'\t'}
+    done
+
+    ((tab_count == 3)) || return 1
+    result=${record%%$'\t'*}
+    [[ -n $result ]]
+}
+
+validate_records() {
+    local record
+    local record_number=0
+
+    while IFS= read -r -d '' record || [[ -n $record ]]; do
+        record_number=$((record_number + 1))
+        if valid_record "$record"; then
+            printf '%s\0' "$record"
+        else
+            debug_skip "$record_number" 'expected a non-empty result and exactly three tab delimiters'
+        fi
+    done
 }
 
 extract_results() {
     local record
+    local record_number=0
 
-    while IFS= read -r -d '' record; do
-        [[ $record == *$'\t'* ]] || continue
-        # Result fields may contain newlines but not literal tabs.
-        printf '%s\0' "${record%%$'\t'*}"
+    while IFS= read -r -d '' record || [[ -n $record ]]; do
+        record_number=$((record_number + 1))
+        if valid_record "$record"; then
+            # Result fields may contain newlines but not literal tabs.
+            printf '%s\0' "${record%%$'\t'*}"
+        else
+            debug_skip "$record_number" 'fzf returned a malformed record'
+        fi
     done
 }
 
-case ${1:-} in
-    -h|--help)
-        usage
-        exit 0
-        ;;
+output=result
+fzf_args=()
+
+while (($# > 0)); do
+    case $1 in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --output)
+            (($# >= 2)) || die '--output requires result or record'
+            output=$2
+            shift 2
+            ;;
+        --output=*)
+            output=${1#*=}
+            shift
+            ;;
+        --read0|--read0=*|--no-read0|-0)
+            die '--read0 is owned by fzf-record-select'
+            ;;
+        --print0|--print0=*|--no-print0)
+            die '--print0 is owned by fzf-record-select'
+            ;;
+        --delimiter|--delimiter=*|-d|-d?*)
+            die 'the tab delimiter is owned by fzf-record-select'
+            ;;
+        --print-query|--print-query=*)
+            die '--print-query would corrupt the NUL output protocol'
+            ;;
+        --expect|--expect=*)
+            die '--expect would corrupt the NUL output protocol'
+            ;;
+        --accept-nth|--accept-nth=*)
+            die '--accept-nth would corrupt the selected record'
+            ;;
+        *)
+            fzf_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+case $output in
+    result|record) ;;
+    *) die "invalid output mode '$output' (expected result or record)" ;;
 esac
 
-fzf --read0 --print0 --ansi --delimiter=$'\t' --with-nth=3 --nth=2,3 "$@" | extract_results
+# fzf cannot search fields hidden by --with-nth, so keep the search and display
+# fields in the presentation while excluding the raw result and metadata.
+presentation_args=(--ansi --with-nth=2,3 --nth=1,2)
+# These options are appended after caller options so the record transport
+# cannot be disabled or redirected by a picker.
+transport_args=(--read0 --print0 --delimiter=$'\t')
+
+validate_records | {
+    if [[ $output == record ]]; then
+        fzf "${presentation_args[@]}" "${fzf_args[@]}" "${transport_args[@]}"
+    else
+        fzf "${presentation_args[@]}" "${fzf_args[@]}" "${transport_args[@]}" | extract_results
+    fi
+}

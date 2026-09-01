@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." >/dev/null 2>&1 && pwd)
+SELECTOR=$ROOT_DIR/bin/fzf-record-select
+DEMO=$ROOT_DIR/bin/fzf-candidate-demo
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf -- "$TMP_DIR"' EXIT
+
+fail() {
+    printf 'test-records: %s\n' "$1" >&2
+    exit 1
+}
+
+assert_file_equals() {
+    local expected=$1
+    local actual=$2
+    cmp -s "$expected" "$actual" || fail "files differ: $expected and $actual"
+}
+
+assert_error() {
+    local option=$1
+    local error_file=$TMP_DIR/error
+
+    if "$SELECTOR" "$option" </dev/null > /dev/null 2>"$error_file"; then
+        fail "transport option was accepted: $option"
+    fi
+    [[ -s $error_file ]] || fail "missing diagnostic for: $option"
+}
+
+record() {
+    printf '%s\t%s\t%s\t%s\0' "$1" "$2" "$3" "$4"
+}
+
+expected=$TMP_DIR/expected
+actual=$TMP_DIR/actual
+
+printf '%s\0' '-leading/Δ file.txt' >"$expected"
+"$DEMO" records | "$SELECTOR" --filter='leading dash unicode' >"$actual"
+assert_file_equals "$expected" "$actual"
+
+special_result=$'notes/space quote \' " $() ; | & [brackets].md'
+printf '%s\0' "$special_result" >"$expected"
+"$DEMO" records | "$SELECTOR" --filter='Special characters' >"$actual"
+assert_file_equals "$expected" "$actual"
+
+search_record=$'search/path\tsearch field\tSearch display\tkind=text'
+printf '%s\0' 'search/path' >"$expected"
+printf '%s\0' "$search_record" | "$SELECTOR" --filter='search field' >"$actual"
+assert_file_equals "$expected" "$actual"
+
+newline_result=$'notes/newline\nfilename.md'
+printf '%s\0' "$newline_result" >"$expected"
+"$DEMO" records | "$SELECTOR" --filter='Newline filename' >"$actual"
+assert_file_equals "$expected" "$actual"
+
+json_record=$'data/example.json\tdata json example\t\e[38;2;249;226;175mJSON example\e[0m\tkind=json'
+printf '%s\0' "$json_record" >"$expected"
+"$DEMO" records | "$SELECTOR" --output record --no-ansi --filter='JSON example' >"$actual"
+assert_file_equals "$expected" "$actual"
+
+multi_first=$'multi/one\tfirst\t\e[38;2;137;180;250mFixture one\e[0m\tkind=text'
+multi_second=$'multi/two\tsecond\t\e[38;2;166;227;161mFixture two\e[0m\tkind=text'
+{
+    printf '%s\0' "$multi_first"
+    printf '%s\0' "$multi_second"
+} >"$expected"
+{
+    record 'multi/one' 'first' $'\e[38;2;137;180;250mFixture one\e[0m' 'kind=text'
+    record 'multi/two' 'second' $'\e[38;2;166;227;161mFixture two\e[0m' 'kind=text'
+} | "$SELECTOR" --output record --no-ansi --multi --no-sort --filter=Fixture >"$actual"
+assert_file_equals "$expected" "$actual"
+
+invalid=$'safe/path\tsearch\twith\ttab\tdisplay\tmetadata\0'
+if printf '%s' "$invalid" | FZF_RECORD_DEBUG=1 "$SELECTOR" --filter=safe >"$actual" 2>"$TMP_DIR/debug"; then
+    fail 'malformed tab-delimited record was accepted'
+fi
+[[ ! -s $actual ]] || fail 'malformed record produced output'
+[[ $(<"$TMP_DIR/debug") == *'skipping record 1'* ]] || fail 'malformed record diagnostic missing'
+
+assert_error --read0
+assert_error --print0
+assert_error --delimiter=:
+assert_error --print-query
+assert_error --expect=ctrl-j
+assert_error --accept-nth=1
+
+printf 'test-records: PASS\n'
