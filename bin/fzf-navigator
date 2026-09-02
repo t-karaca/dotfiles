@@ -3,45 +3,112 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
-cwd=$(pwd)
-display_cwd=$cwd
-if [[ -n ${HOME:-} && ($cwd == "$HOME" || $cwd == "$HOME"/*) ]]; then
-    display_cwd="~${cwd#"$HOME"}"
-fi
+SOURCE=$ROOT_DIR/fzf-navigator-source
+ACTION=$ROOT_DIR/fzf-navigator-action
 
-mkdir -p /tmp/fzf-navigator/ || true
-echo "$cwd" > /tmp/fzf-navigator/cwd
-echo "$cwd" > /tmp/fzf-navigator/start-cwd
-if git_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null); then
-    printf '%s\n' "$git_root" > /tmp/fzf-navigator/git-root
+usage() {
+    printf 'Usage: %s\n' "${0##*/}"
+}
+
+fail() {
+    printf 'fzf-navigator: %s\n' "$1" >&2
+    exit 1
+}
+
+supported_path() {
+    local LC_ALL=C
+
+    [[ $1 == /* && ! $1 =~ [[:cntrl:]] ]]
+}
+
+write_state() {
+    local name=$1
+    local value=$2
+    local temporary
+
+    temporary=$(mktemp "$state_dir/.${name}.XXXXXX") || fail "could not create $name state"
+    printf '%s\n' "$value" >"$temporary"
+    mv -f -- "$temporary" "$state_dir/$name"
+}
+
+(($# == 0)) || {
+    usage >&2
+    exit 2
+}
+
+[[ -x $SOURCE ]] || fail "source helper is unavailable: $SOURCE"
+[[ -x $ACTION ]] || fail "action helper is unavailable: $ACTION"
+command -v fzf >/dev/null 2>&1 || fail 'fzf is required'
+
+cwd=$(pwd -P)
+supported_path "$cwd" || fail "starting directory contains unsupported control characters: $cwd"
+
+if command -v git >/dev/null 2>&1 && git_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null); then
+    supported_path "$git_root" || fail "Git root contains unsupported control characters: $git_root"
 else
-    : > /tmp/fzf-navigator/git-root
+    git_root=''
 fi
-printf '%s\n' ascending > /tmp/fzf-navigator/sort-mode
 
-selection=$(
-    eza --oneline --icons always --color always --sort=name --no-quotes --group-directories-first | fzf \
-        --layout reverse \
-        --ansi \
-        --scheme path \
-        --preview "fzf-navigator-tools.sh preview {}" \
-        --preview-window "right" \
-        --preview-border none \
-        --header "Sort: A-Z" \
-        --bind "ctrl-o:transform(fzf-navigator-tools.sh open {})" \
-        --bind "ctrl-e:transform(fzf-navigator-tools.sh navigate {})" \
-        --bind "ctrl-t:transform(fzf-navigator-tools.sh parent)" \
-        --bind "ctrl-r:transform(fzf-navigator-tools.sh start)" \
-        --bind "ctrl-g:transform(fzf-navigator-tools.sh git-root)" \
-        --bind "ctrl-y:transform(fzf-navigator-tools.sh toggle-sort)" \
-        --footer $'\e[30m^O\e[0m open  \e[30m^E\e[0m enter  \e[30m^T\e[0m parent  \e[30m^R\e[0m start  \e[30m^G\e[0m git root  \e[30m^Y\e[0m toggle sort' \
-        --prompt "$display_cwd > "
+state_dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/fzf-navigator.XXXXXX") || fail 'could not create session state'
+export FZF_NAVIGATOR_STATE_DIR=$state_dir
+export FZF_NAVIGATOR_BIN_DIR=$ROOT_DIR
+trap 'rm -rf -- "$state_dir"' EXIT
+
+write_state cwd "$cwd"
+write_state start-cwd "$cwd"
+write_state git-root "$git_root"
+write_state mode browse
+write_state sort-mode ascending
+
+candidate_file=$state_dir/candidates
+selection_file=$state_dir/selection
+set +e
+"$SOURCE" >"$candidate_file"
+source_status=$?
+set -e
+((source_status == 0)) || fail "source failed (exit $source_status)"
+
+prompt=$("$ACTION" prompt)
+header=$("$ACTION" header)
+ACTION_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action"'
+
+fzf_args=(
+    --layout=reverse
+    --ansi
+    --scheme=path
+    --delimiter=$'\t'
+    --with-nth=4
+    --accept-nth=1
+    --prompt="$prompt"
+    --header="$header"
+    --footer='^O open  ^E enter  ^T parent  ^R start  ^G git root  ^Y sort  ^F mode'
+    --preview="$ACTION_COMMAND preview {1} {2} {3}"
+    --preview-window='right,50%,+{2}/2'
+    --preview-border=none
+    --bind="ctrl-o:transform($ACTION_COMMAND open {1})"
+    --bind="ctrl-e:transform($ACTION_COMMAND enter {1} {q})"
+    --bind="ctrl-t:transform($ACTION_COMMAND parent {q})"
+    --bind="ctrl-r:transform($ACTION_COMMAND start {q})"
+    --bind="ctrl-g:transform($ACTION_COMMAND git-root {q})"
+    --bind="ctrl-y:transform($ACTION_COMMAND toggle-sort {q})"
+    --bind="ctrl-f:transform($ACTION_COMMAND cycle-mode {q})"
 )
 
-if [[ -n $selection ]]; then
-    cwd=$(< /tmp/fzf-navigator/cwd)
-    filename=''
-    source "$ROOT_DIR/fzf-navigator-tools.sh"
-    filename=$(extract_filename "$selection")
-    printf '%s/%s\n' "${cwd%/}" "$filename"
-fi
+set +e
+fzf "${fzf_args[@]}" <"$candidate_file" >"$selection_file"
+fzf_status=$?
+set -e
+
+case $fzf_status in
+0)
+    if [[ -s $selection_file ]]; then
+        selection=$(<"$selection_file")
+        supported_path "$selection" || fail 'fzf returned an unsupported result path'
+        printf '%s\n' "$selection"
+    fi
+    ;;
+1 | 130) ;;
+*)
+    fail "fzf failed (exit $fzf_status)"
+    ;;
+esac

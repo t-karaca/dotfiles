@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+STATE_DIR=${FZF_NAVIGATOR_STATE_DIR:-}
+query=''
+raw_paths=()
+display_paths=()
+
+fail() {
+    printf 'fzf-navigator-source: %s\n' "$1" >&2
+    exit 1
+}
+
+die() {
+    printf 'fzf-navigator-source: %s\n' "$1" >&2
+    exit 2
+}
+
+supported_path() {
+    local LC_ALL=C
+
+    [[ $1 == /* && ! $1 =~ [[:cntrl:]] ]]
+}
+
+state_value() {
+    local name=$1
+    local file=$STATE_DIR/$name
+    local value
+
+    [[ -f $file ]] || fail "state is unavailable: $name"
+    IFS= read -r value <"$file" || fail "state is malformed: $name"
+    printf '%s' "$value"
+}
+
+while (($# > 0)); do
+    case $1 in
+        --query)
+            (($# >= 2)) || die '--query requires a value'
+            query=$2
+            shift 2
+            ;;
+        --query=*)
+            query=${1#*=}
+            shift
+            ;;
+        -h|--help)
+            printf 'Usage: %s [--query QUERY]\n' "${0##*/}"
+            exit 0
+            ;;
+        *)
+            die "unknown option: $1"
+            ;;
+    esac
+done
+
+[[ -n $STATE_DIR && -d $STATE_DIR ]] || fail 'private navigator state is unavailable'
+
+cwd=$(state_value cwd)
+mode=$(state_value mode)
+sort_mode=$(state_value sort-mode)
+supported_path "$cwd" || fail 'current directory state is malformed'
+[[ -d $cwd ]] || fail "current directory is unavailable: $cwd"
+
+case $mode in
+    browse|find) ;;
+    grep) fail 'Grep mode is not implemented' ;;
+    *) fail "invalid mode in state: $mode" ;;
+esac
+case $sort_mode in
+    ascending|recent|descending) ;;
+    *) fail "invalid sort mode in state: $sort_mode" ;;
+esac
+command -v eza >/dev/null 2>&1 || fail 'eza is required'
+
+temporary_dir=$(mktemp -d "$STATE_DIR/source.XXXXXX") || fail 'could not create source workspace'
+trap 'rm -rf -- "$temporary_dir"' EXIT
+
+collect_browse() {
+    local raw
+    local -a entries
+
+    shopt -s nullglob
+    if [[ $cwd == / ]]; then
+        entries=(/*)
+    else
+        entries=("$cwd"/*)
+    fi
+    shopt -u nullglob
+
+    for raw in "${entries[@]}"; do
+        supported_path "$raw" || continue
+        [[ -e $raw || -L $raw ]] || continue
+        raw_paths+=("$raw")
+        display_paths+=("${raw##*/}")
+    done
+}
+
+collect_find() {
+    local fd_output=$temporary_dir/fd-output
+    local relative
+    local raw
+
+    command -v fd >/dev/null 2>&1 || fail 'fd is required for Find mode'
+    (
+        cd -- "$cwd"
+        fd --print0 --color=never .
+    ) >"$fd_output"
+
+    while IFS= read -r -d '' relative; do
+        relative=${relative#./}
+        [[ -n $relative ]] || continue
+        [[ ! $relative =~ [[:cntrl:]] ]] || continue
+        if [[ $cwd == / ]]; then
+            raw=/${relative%/}
+        else
+            raw=${cwd%/}/${relative%/}
+        fi
+        supported_path "$raw" || continue
+        [[ -e $raw || -L $raw ]] || continue
+        raw_paths+=("$raw")
+        display_paths+=("$relative")
+    done <"$fd_output"
+}
+
+sort_candidates() {
+    local sort_input=$temporary_dir/sort-input
+    local sort_output=$temporary_dir/sort-output
+    local record
+    local index
+    local group
+    local mtime
+    local -a sorted_raw=()
+    local -a sorted_display=()
+
+    ((${#raw_paths[@]} > 0)) || return
+
+    for index in "${!raw_paths[@]}"; do
+        if [[ -d ${raw_paths[index]} ]]; then
+            group=0
+        else
+            group=1
+        fi
+
+        case $sort_mode in
+            ascending)
+                printf '%s\t%s\t%s\n' "$group" "${display_paths[index]}" "$index" >>"$sort_input"
+                ;;
+            recent)
+                if ! mtime=$(stat --printf='%Y' -- "${raw_paths[index]}"); then
+                    fail "could not read modification time: ${raw_paths[index]}"
+                fi
+                [[ $mtime =~ ^-?[0-9]+$ ]] || fail "invalid modification time: ${raw_paths[index]}"
+                if [[ -d ${raw_paths[index]} ]]; then
+                    group=1
+                else
+                    group=0
+                fi
+                printf '%s\t%s\t%s\t%s\n' "$group" "$mtime" "${display_paths[index]}" "$index" >>"$sort_input"
+                ;;
+            descending)
+                if [[ -d ${raw_paths[index]} ]]; then
+                    group=1
+                else
+                    group=0
+                fi
+                printf '%s\t%s\t%s\n' "$group" "${display_paths[index]}" "$index" >>"$sort_input"
+                ;;
+        esac
+    done
+
+    case $sort_mode in
+        ascending)
+            LC_ALL=C sort -t $'\t' -k1,1n -k2,2 <"$sort_input" >"$sort_output"
+            ;;
+        recent)
+            LC_ALL=C sort -t $'\t' -k1,1n -k2,2nr -k3,3 <"$sort_input" >"$sort_output"
+            ;;
+        descending)
+            LC_ALL=C sort -t $'\t' -k1,1n -k2,2r <"$sort_input" >"$sort_output"
+            ;;
+    esac
+
+    while IFS= read -r record; do
+        index=${record##*$'\t'}
+        sorted_raw+=("${raw_paths[index]}")
+        sorted_display+=("${display_paths[index]}")
+    done <"$sort_output"
+    raw_paths=("${sorted_raw[@]}")
+    display_paths=("${sorted_display[@]}")
+}
+
+render_candidates() {
+    local eza_input=$temporary_dir/eza-input
+    local eza_output=$temporary_dir/eza-output
+    local display
+    local index
+    local -a decorated=()
+
+    ((${#raw_paths[@]} > 0)) || return
+    printf '%s\n' "${display_paths[@]}" >"$eza_input"
+    (
+        cd -- "$cwd"
+        eza \
+            --stdin \
+            --oneline \
+            --icons=always \
+            --color=always \
+            --no-quotes \
+            --sort=none \
+            --treat-dirs-as-files
+    ) <"$eza_input" >"$eza_output"
+
+    mapfile -t decorated <"$eza_output"
+    ((${#decorated[@]} == ${#raw_paths[@]})) || fail 'eza did not render every candidate'
+
+    for index in "${!raw_paths[@]}"; do
+        display=${decorated[index]}
+        [[ $display != *$'\t'* && $display != *$'\r'* ]] || fail 'eza produced an unsupported display record'
+        printf '%s\t0\t0\t%s\n' "${raw_paths[index]}" "$display"
+    done
+}
+
+case $mode in
+    browse) collect_browse ;;
+    find) collect_find ;;
+esac
+sort_candidates
+render_candidates

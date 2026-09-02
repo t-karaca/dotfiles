@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
+STATE_DIR=${FZF_NAVIGATOR_STATE_DIR:-}
+ACTION_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action"'
+SOURCE_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-source"'
+
+fail() {
+    printf 'fzf-navigator-action: %s\n' "$1" >&2
+    exit 1
+}
+
+die() {
+    printf 'fzf-navigator-action: %s\n' "$1" >&2
+    exit 2
+}
+
+supported_path() {
+    local LC_ALL=C
+
+    [[ $1 == /* && ! $1 =~ [[:cntrl:]] ]]
+}
+
+require_state_dir() {
+    [[ -n $STATE_DIR && -d $STATE_DIR ]] || fail 'private navigator state is unavailable'
+}
+
+state_value() {
+    local name=$1
+    local file=$STATE_DIR/$name
+    local value
+
+    [[ -f $file ]] || fail "state is unavailable: $name"
+    IFS= read -r value <"$file" || fail "state is malformed: $name"
+    printf '%s' "$value"
+}
+
+write_state() {
+    local name=$1
+    local value=$2
+    local temporary
+
+    temporary=$(mktemp "$STATE_DIR/.${name}.XXXXXX") || fail "could not create $name state"
+    printf '%s\n' "$value" >"$temporary"
+    mv -f -- "$temporary" "$STATE_DIR/$name"
+}
+
+load_state() {
+    cwd=$(state_value cwd)
+    start_cwd=$(state_value start-cwd)
+    git_root=$(state_value git-root)
+    mode=$(state_value mode)
+    sort_mode=$(state_value sort-mode)
+
+    supported_path "$cwd" || fail 'current directory state is malformed'
+    supported_path "$start_cwd" || fail 'starting directory state is malformed'
+    [[ -z $git_root ]] || supported_path "$git_root" || fail 'Git root state is malformed'
+    case $mode in
+        browse|find|grep) ;;
+        *) fail "invalid mode in state: $mode" ;;
+    esac
+    case $sort_mode in
+        ascending|recent|descending) ;;
+        *) fail "invalid sort mode in state: $sort_mode" ;;
+    esac
+}
+
+display_path() {
+    local path=$1
+
+    if [[ -n ${HOME:-} && ($path == "$HOME" || $path == "$HOME"/*) ]]; then
+        printf '~%s' "${path#"$HOME"}"
+    else
+        printf '%s' "$path"
+    fi
+}
+
+sort_label() {
+    case $sort_mode in
+        ascending) printf 'A-Z' ;;
+        recent) printf 'Recent' ;;
+        descending) printf 'Z-A' ;;
+    esac
+}
+
+require_query() {
+    (($# == 1)) || die 'expected the current query'
+}
+
+require_fzf_commands() {
+    [[ -n ${FZF_NAVIGATOR_BIN_DIR:-} ]] || fail 'navigator command directory is unavailable'
+    [[ -x $FZF_NAVIGATOR_BIN_DIR/fzf-navigator-source ]] || fail 'source helper is unavailable'
+    [[ -x $FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action ]] || fail 'action helper is unavailable'
+}
+
+render_refresh() {
+    local query_policy=$1
+    local actions
+
+    require_fzf_commands
+    case $query_policy in
+        clear|preserve) ;;
+        *) die "invalid query policy: $query_policy" ;;
+    esac
+
+    actions="transform-header($ACTION_COMMAND header)+transform-prompt($ACTION_COMMAND prompt)"
+    [[ $query_policy == clear ]] && actions+='+clear-query'
+    actions+="+reload($SOURCE_COMMAND)+first"
+    printf '%s\n' "$actions"
+}
+
+preview() {
+    (($# == 3)) || die 'preview expects path, line, and column'
+    local path=$1
+    local line=$2
+    local column=$3
+
+    supported_path "$path" || fail 'preview path is malformed'
+    [[ -e $path || -L $path ]] || fail "preview path is unavailable: $path"
+    [[ $line =~ ^[0-9]+$ && $column =~ ^[0-9]+$ ]] || die 'preview metadata is malformed'
+
+    if ((line == 0)); then
+        "$SCRIPT_DIR/preview-dispatcher" "$path"
+    else
+        "$SCRIPT_DIR/preview-dispatcher" "$path" "line=$line;column=$column"
+    fi
+}
+
+run_open() {
+    (($# == 0)) || die 'run-open expects no arguments'
+    local path
+
+    path=$(state_value open-path)
+    supported_path "$path" || fail 'open path is malformed'
+    [[ -e $path || -L $path ]] || fail "open path is unavailable: $path"
+    command -v xdg-open >/dev/null 2>&1 || fail 'xdg-open is required'
+
+    if [[ -r /dev/tty && -w /dev/tty ]]; then
+        printf '\033[2J\033[H' >/dev/tty
+        xdg-open -- "$path" </dev/tty >/dev/tty 2>&1
+    else
+        xdg-open -- "$path"
+    fi
+}
+
+open() {
+    (($# == 1)) || die 'open expects a path'
+    local path=$1
+
+    supported_path "$path" || fail 'open path is malformed'
+    [[ -e $path || -L $path ]] || fail "open path is unavailable: $path"
+    command -v xdg-open >/dev/null 2>&1 || fail 'xdg-open is required'
+
+    if [[ -d $path ]]; then
+        nohup xdg-open -- "$path" >/dev/null 2>&1 &
+        printf 'refresh-preview\n'
+    else
+        write_state open-path "$path"
+        printf '%s\n' 'execute("$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action" run-open)+refresh-preview'
+    fi
+}
+
+enter() {
+    (($# == 2)) || die 'enter expects a path and query'
+    local path=$1
+
+    supported_path "$path" || fail 'enter path is malformed'
+    [[ -e $path || -L $path ]] || fail "enter path is unavailable: $path"
+
+    if [[ -d $path ]]; then
+        write_state cwd "$path"
+        render_refresh clear
+    elif [[ $mode == find ]]; then
+        write_state cwd "$(dirname -- "$path")"
+        write_state mode browse
+        render_refresh clear
+    fi
+}
+
+parent() {
+    require_query "$@"
+    local destination
+
+    if [[ $cwd == / ]]; then
+        destination=/
+    else
+        destination=${cwd%/*}
+        [[ -n $destination ]] || destination=/
+    fi
+    [[ -d $destination ]] || fail "parent directory is unavailable: $destination"
+    write_state cwd "$destination"
+    render_refresh clear
+}
+
+start() {
+    require_query "$@"
+    [[ -d $start_cwd ]] || fail "starting directory is unavailable: $start_cwd"
+    write_state cwd "$start_cwd"
+    render_refresh clear
+}
+
+git_root_action() {
+    require_query "$@"
+    if [[ -z $git_root ]]; then
+        printf 'change-header(Git root unavailable for launch directory)+bell\n'
+        return
+    fi
+    [[ -d $git_root ]] || fail "Git root is unavailable: $git_root"
+    write_state cwd "$git_root"
+    render_refresh clear
+}
+
+toggle_sort() {
+    require_query "$@"
+    local next_mode
+
+    case $sort_mode in
+        ascending) next_mode=recent ;;
+        recent) next_mode=descending ;;
+        descending) next_mode=ascending ;;
+    esac
+    write_state sort-mode "$next_mode"
+    render_refresh preserve
+}
+
+transition_mode() {
+    (($# == 2)) || die 'mode transition expects a mode and query'
+    local next_mode=$1
+
+    case $next_mode in
+        browse|find) ;;
+        *) die "unsupported mode: $next_mode" ;;
+    esac
+    write_state mode "$next_mode"
+    render_refresh preserve
+}
+
+cycle_mode() {
+    require_query "$@"
+
+    case $mode in
+        browse) transition_mode find "$1" ;;
+        find) transition_mode browse "$1" ;;
+        grep) transition_mode browse "$1" ;;
+    esac
+}
+
+header() {
+    case $mode in
+        browse) printf 'Mode: Browse | Sort: %s\n' "$(sort_label)" ;;
+        find) printf 'Mode: Find | Sort: %s\n' "$(sort_label)" ;;
+        grep) printf 'Mode: Grep\n' ;;
+    esac
+}
+
+prompt() {
+    printf '%s > \n' "$(display_path "$cwd")"
+}
+
+usage() {
+    printf 'Usage: %s <command> [arguments...]\n' "${0##*/}"
+}
+
+main() {
+    (($# > 0)) || {
+        usage >&2
+        return 2
+    }
+
+    local command=$1
+    shift
+    case $command in
+        -h|--help)
+            (($# == 0)) || die 'help expects no arguments'
+            usage
+            return 0
+            ;;
+    esac
+
+    require_state_dir
+    case $command in
+        preview) preview "$@" ;;
+        run-open) run_open "$@" ;;
+        open) open "$@" ;;
+        *)
+            load_state
+            case $command in
+                enter) enter "$@" ;;
+                parent) parent "$@" ;;
+                start) start "$@" ;;
+                git-root) git_root_action "$@" ;;
+                toggle-sort) toggle_sort "$@" ;;
+                cycle-mode) cycle_mode "$@" ;;
+                header) (($# == 0)) || die 'header expects no arguments'; header ;;
+                prompt) (($# == 0)) || die 'prompt expects no arguments'; prompt ;;
+                *)
+                    die "unknown command: $command"
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+main "$@"
