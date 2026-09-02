@@ -1,6 +1,7 @@
 lazygit/state.yml
 git/delta/current.gitconfig
 fzf/current
+state/appearance
 zsh/local.zsh
 zsh/cache/.zcompdump
 zsh/cache/.zcompdump.zwc

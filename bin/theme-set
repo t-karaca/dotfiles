@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+APPEARANCE_STATE="$ROOT_DIR/state/appearance"
 
 usage() {
     printf 'Usage: %s {dark|light|status}\n' "${0##*/}"
@@ -28,6 +29,7 @@ set_theme() {
     local theme=$1
     local delta_theme
     local fzf_theme
+    local temporary
 
     case $theme in
         dark)
@@ -46,15 +48,23 @@ set_theme() {
 
     replace_link "$delta_theme" "$ROOT_DIR/git/delta/current.gitconfig"
     replace_link "$fzf_theme" "$ROOT_DIR/fzf/current"
+    mkdir -p -- "${APPEARANCE_STATE%/*}"
+    temporary=$(mktemp "${APPEARANCE_STATE}.tmp.XXXXXX")
+    trap 'rm -f -- "$temporary"' RETURN
+    printf '%s\n' "$theme" >"$temporary"
+    mv -f -- "$temporary" "$APPEARANCE_STATE"
+    trap - RETURN
     printf '%s\n' "$theme"
 }
 
 status() {
-    if current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/mocha.gitconfig" \
-        && current_theme "$ROOT_DIR/fzf/current" "$ROOT_DIR/fzf/mocha"; then
+    if [[ -f $APPEARANCE_STATE ]] && [[ $(wc -c <"$APPEARANCE_STATE") -eq 5 ]] \
+        && [[ $(<"$APPEARANCE_STATE") == dark ]] \
+        && current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/mocha.gitconfig"; then
         printf 'dark\n'
-    elif current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/latte.gitconfig" \
-        && current_theme "$ROOT_DIR/fzf/current" "$ROOT_DIR/fzf/latte"; then
+    elif [[ -f $APPEARANCE_STATE ]] && [[ $(wc -c <"$APPEARANCE_STATE") -eq 6 ]] \
+        && [[ $(<"$APPEARANCE_STATE") == light ]] \
+        && current_theme "$ROOT_DIR/git/delta/current.gitconfig" "$ROOT_DIR/git/delta/latte.gitconfig"; then
         printf 'light\n'
     else
         printf 'Theme indirection is missing or inconsistent.\n' >&2
