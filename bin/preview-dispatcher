@@ -2,12 +2,15 @@
 
 set -euo pipefail
 
+ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." >/dev/null 2>&1 && pwd)
+APPEARANCE_STATE="$ROOT_DIR/state/appearance"
 MAX_LINES=${PREVIEW_MAX_LINES:-200}
 TIMEOUT_SECONDS=${PREVIEW_TIMEOUT_SECONDS:-2}
 MAX_HEX_BYTES=${PREVIEW_MAX_HEX_BYTES:-256}
 file_description=''
 mime_type=''
 archive_kind=''
+appearance=''
 
 usage() {
     printf 'Usage: %s <path>\n' "${0##*/}"
@@ -26,6 +29,23 @@ validate_limits() {
     [[ $MAX_LINES =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_MAX_LINES must be a positive integer'
     [[ $TIMEOUT_SECONDS =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_TIMEOUT_SECONDS must be a positive integer'
     [[ $MAX_HEX_BYTES =~ ^[1-9][0-9]*$ ]] || fail 'PREVIEW_MAX_HEX_BYTES must be a positive integer'
+}
+
+read_appearance() {
+    [[ -f $APPEARANCE_STATE ]] || fail "appearance state is unavailable: $APPEARANCE_STATE"
+    case $(<"$APPEARANCE_STATE") in
+        dark)
+            [[ $(wc -c <"$APPEARANCE_STATE") -eq 5 ]] || fail 'appearance state is malformed'
+            appearance=dark
+            ;;
+        light)
+            [[ $(wc -c <"$APPEARANCE_STATE") -eq 6 ]] || fail 'appearance state is malformed'
+            appearance=light
+            ;;
+        *)
+            fail 'appearance state is malformed'
+            ;;
+    esac
 }
 
 run_command() {
@@ -124,7 +144,7 @@ preview_directory() {
 
 preview_text() {
     need bat
-    run_command 'text preview' bat --paging=never --style=numbers --color=always --line-range=":${MAX_LINES}" -- "$target"
+    run_command 'text preview' bat --paging=never --style=numbers --color=always  --theme="$appearance" --line-range=":${MAX_LINES}" -- "$target"
 }
 
 preview_json() {
@@ -165,8 +185,7 @@ preview_markdown() {
 
     [[ $columns =~ ^[1-9][0-9]*$ ]] || columns=80
     need glow
-    # Glow must write directly to the preview terminal to preserve colors.
-    run_command 'Markdown preview' glow --width "$columns" -- "$target"
+    run_command 'Markdown preview' glow --style "$appearance" --width "$columns" -- "$target"
 }
 
 preview_image() {
@@ -176,7 +195,7 @@ preview_image() {
     [[ $columns =~ ^[1-9][0-9]*$ ]] || columns=80
     [[ $lines =~ ^[1-9][0-9]*$ ]] || lines=20
     need chafa
-    run_command 'image preview' chafa --format=symbols --colors=256 --size="${columns}x${lines}" -- "$target"
+    run_command 'image preview' chafa --passthrough tmux --size="${columns}x${lines}" -- "$target"
 }
 
 preview_pdf() {
@@ -262,13 +281,14 @@ case ${1:-} in
         ;;
 esac
 
-[[ $# == 1 ]] || {
+[[ $# == 1 || $# == 2 ]] || {
     usage >&2
     exit 2
 }
 
 validate_limits
 target=$1
+read_appearance
 [[ -e $target || -L $target ]] || fail "path does not exist: $target"
 
 if [[ -L $target ]]; then

@@ -6,6 +6,26 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 STATE_DIR=${FZF_NAVIGATOR_STATE_DIR:-}
 ACTION_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action"'
 SOURCE_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-source"'
+TIMEOUT_SECONDS=${FZF_NAVIGATOR_TIMEOUT_SECONDS:-5}
+
+setup_logging() {
+    local log_dir
+
+    if [[ -n ${FZF_NAVIGATOR_LOG_FILE:-} ]]; then
+        LOG_FILE=$FZF_NAVIGATOR_LOG_FILE
+    elif [[ -n ${XDG_STATE_HOME:-} ]]; then
+        LOG_FILE=$XDG_STATE_HOME/fzf-navigator/fzf-navigator.log
+    elif [[ -n ${HOME:-} ]]; then
+        LOG_FILE=$HOME/.local/state/fzf-navigator/fzf-navigator.log
+    else
+        return 1
+    fi
+    log_dir=${LOG_FILE%/*}
+    [[ -n $log_dir && $log_dir != "$LOG_FILE" ]] || return 1
+    mkdir -p -- "$log_dir" 2>/dev/null || return 1
+    : >>"$LOG_FILE" 2>/dev/null || return 1
+    exec 2>>"$LOG_FILE"
+}
 
 fail() {
     printf 'fzf-navigator-action: %s\n' "$1" >&2
@@ -16,6 +36,8 @@ die() {
     printf 'fzf-navigator-action: %s\n' "$1" >&2
     exit 2
 }
+
+setup_logging || exit 1
 
 supported_path() {
     local LC_ALL=C
@@ -53,6 +75,8 @@ load_state() {
     git_root=$(state_value git-root)
     mode=$(state_value mode)
     sort_mode=$(state_value sort-mode)
+    show_hidden=$(state_value show-hidden)
+    show_ignored=$(state_value show-ignored)
 
     supported_path "$cwd" || fail 'current directory state is malformed'
     supported_path "$start_cwd" || fail 'starting directory state is malformed'
@@ -65,6 +89,15 @@ load_state() {
         ascending|recent|descending) ;;
         *) fail "invalid sort mode in state: $sort_mode" ;;
     esac
+    case $show_hidden in
+        true|false) ;;
+        *) fail 'hidden visibility state is malformed' ;;
+    esac
+    case $show_ignored in
+        true|false) ;;
+        *) fail 'ignored visibility state is malformed' ;;
+    esac
+    [[ $TIMEOUT_SECONDS =~ ^[0-9]+$ ]] || fail 'timeout must be a non-negative integer'
 }
 
 display_path() {
@@ -85,6 +118,14 @@ sort_label() {
     esac
 }
 
+timeout_label() {
+    if [[ $TIMEOUT_SECONDS == 0 ]]; then
+        printf 'Off'
+    else
+        printf '%ss' "$TIMEOUT_SECONDS"
+    fi
+}
+
 require_query() {
     (($# == 1)) || die 'expected the current query'
 }
@@ -95,9 +136,46 @@ require_fzf_commands() {
     [[ -x $FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action ]] || fail 'action helper is unavailable'
 }
 
+resolve_path() {
+    (($# == 1)) || die 'resolve-path expects a selected value'
+    local selected=$1
+    local relative_path
+    local path
+
+    case $mode in
+        browse|find)
+            [[ $selected == *' '* ]] || fail 'selected path is missing its eza icon'
+            relative_path=${selected#* }
+            ;;
+        grep)
+            relative_path=$selected
+            ;;
+    esac
+    relative_path=${relative_path#./}
+    [[ -n $relative_path && $relative_path != /* && ! $relative_path =~ [[:cntrl:]] ]] || fail 'selected path is malformed'
+
+    if [[ $cwd == / ]]; then
+        path=/$relative_path
+    else
+        path=$cwd/$relative_path
+    fi
+    supported_path "$path" || fail 'resolved path is malformed'
+    [[ -e $path || -L $path ]] || fail "selected path is unavailable: $path"
+    printf '%s\n' "$path"
+}
+
+reload_action() {
+    if [[ $mode == grep ]]; then
+        printf 'reload(%s --query {q})' "$SOURCE_COMMAND"
+    else
+        printf 'reload(%s)' "$SOURCE_COMMAND"
+    fi
+}
+
 render_refresh() {
     local query_policy=$1
     local actions
+    local reload
 
     require_fzf_commands
     case $query_policy in
@@ -105,27 +183,48 @@ render_refresh() {
         *) die "invalid query policy: $query_policy" ;;
     esac
 
+    reload=$(reload_action)
     actions="transform-header($ACTION_COMMAND header)+transform-prompt($ACTION_COMMAND prompt)"
+    if [[ $mode == grep ]]; then
+        actions+='+disable-search+rebind(change)'
+    else
+        actions+='+unbind(change)+enable-search'
+    fi
     [[ $query_policy == clear ]] && actions+='+clear-query'
-    actions+="+reload($SOURCE_COMMAND)+first"
+    actions+="+$reload+first"
     printf '%s\n' "$actions"
 }
 
 preview() {
-    (($# == 3)) || die 'preview expects path, line, and column'
-    local path=$1
+    (($# == 3)) || die 'preview expects value, line, and column'
+    local selected=$1
     local line=$2
     local column=$3
+    local path
+    local appearance
 
-    supported_path "$path" || fail 'preview path is malformed'
-    [[ -e $path || -L $path ]] || fail "preview path is unavailable: $path"
-    [[ $line =~ ^[0-9]+$ && $column =~ ^[0-9]+$ ]] || die 'preview metadata is malformed'
-
-    if ((line == 0)); then
-        "$SCRIPT_DIR/preview-dispatcher" "$path"
-    else
-        "$SCRIPT_DIR/preview-dispatcher" "$path" "line=$line;column=$column"
-    fi
+    path=$(resolve_path "$selected")
+    case $mode in
+        browse|find)
+            "$SCRIPT_DIR/preview-dispatcher" "$path"
+            ;;
+        grep)
+            [[ $line =~ ^[1-9][0-9]*$ && $column =~ ^[1-9][0-9]*$ ]] || die 'Grep preview metadata is malformed'
+            appearance=${FZF_NAVIGATOR_APPEARANCE:-}
+            case $appearance in
+                light|dark) ;;
+                *) fail 'Grep preview appearance is malformed' ;;
+            esac
+            command -v bat >/dev/null 2>&1 || fail 'bat is required for Grep previews'
+            bat \
+                --paging=never \
+                --style=numbers \
+                --theme="$appearance" \
+                --color=always \
+                --highlight-line="$line" \
+                -- "$path"
+            ;;
+    esac
 }
 
 run_open() {
@@ -139,22 +238,21 @@ run_open() {
 
     if [[ -r /dev/tty && -w /dev/tty ]]; then
         printf '\033[2J\033[H' >/dev/tty
-        xdg-open -- "$path" </dev/tty >/dev/tty 2>&1
+        xdg-open -- "$path" </dev/tty >/dev/null 2>>"$LOG_FILE"
     else
-        xdg-open -- "$path"
+        xdg-open -- "$path" >/dev/null 2>>"$LOG_FILE"
     fi
 }
 
 open() {
-    (($# == 1)) || die 'open expects a path'
-    local path=$1
+    (($# == 1)) || die 'open expects a selected value'
+    local path
 
-    supported_path "$path" || fail 'open path is malformed'
-    [[ -e $path || -L $path ]] || fail "open path is unavailable: $path"
+    path=$(resolve_path "$1")
     command -v xdg-open >/dev/null 2>&1 || fail 'xdg-open is required'
 
     if [[ -d $path ]]; then
-        nohup xdg-open -- "$path" >/dev/null 2>&1 &
+        nohup xdg-open -- "$path" >/dev/null 2>>"$LOG_FILE" &
         printf 'refresh-preview\n'
     else
         write_state open-path "$path"
@@ -163,18 +261,28 @@ open() {
 }
 
 enter() {
-    (($# == 2)) || die 'enter expects a path and query'
-    local path=$1
+    (($# == 2)) || die 'enter expects a selected value and query'
+    local path
 
-    supported_path "$path" || fail 'enter path is malformed'
-    [[ -e $path || -L $path ]] || fail "enter path is unavailable: $path"
-
-    if [[ -d $path ]]; then
+    path=$(resolve_path "$1")
+    if [[ $mode == grep ]]; then
+        write_state cwd "$(dirname -- "$path")"
+        write_state mode browse
+        render_refresh clear
+    elif [[ -d $path ]]; then
         write_state cwd "$path"
         render_refresh clear
     elif [[ $mode == find ]]; then
         write_state cwd "$(dirname -- "$path")"
         write_state mode browse
+        render_refresh clear
+    fi
+}
+
+refresh_location() {
+    if [[ $mode == grep ]]; then
+        render_refresh preserve
+    else
         render_refresh clear
     fi
 }
@@ -191,14 +299,14 @@ parent() {
     fi
     [[ -d $destination ]] || fail "parent directory is unavailable: $destination"
     write_state cwd "$destination"
-    render_refresh clear
+    refresh_location
 }
 
 start() {
     require_query "$@"
     [[ -d $start_cwd ]] || fail "starting directory is unavailable: $start_cwd"
     write_state cwd "$start_cwd"
-    render_refresh clear
+    refresh_location
 }
 
 git_root_action() {
@@ -209,13 +317,14 @@ git_root_action() {
     fi
     [[ -d $git_root ]] || fail "Git root is unavailable: $git_root"
     write_state cwd "$git_root"
-    render_refresh clear
+    refresh_location
 }
 
 toggle_sort() {
     require_query "$@"
     local next_mode
 
+    [[ $mode == browse ]] || return
     case $sort_mode in
         ascending) next_mode=recent ;;
         recent) next_mode=descending ;;
@@ -225,15 +334,34 @@ toggle_sort() {
     render_refresh preserve
 }
 
+toggle_visibility() {
+    (($# == 2)) || die 'visibility toggle expects state name and query'
+    local name=$1
+    local value
+
+    case $name in
+        show-hidden|show-ignored) ;;
+        *) die "invalid visibility state: $name" ;;
+    esac
+    value=$(state_value "$name")
+    case $value in
+        false) write_state "$name" true ;;
+        true) write_state "$name" false ;;
+        *) fail "visibility state is malformed: $name" ;;
+    esac
+    render_refresh preserve
+}
+
 transition_mode() {
     (($# == 2)) || die 'mode transition expects a mode and query'
     local next_mode=$1
 
     case $next_mode in
-        browse|find) ;;
+        browse|find|grep) ;;
         *) die "unsupported mode: $next_mode" ;;
     esac
     write_state mode "$next_mode"
+    mode=$next_mode
     render_refresh preserve
 }
 
@@ -242,17 +370,22 @@ cycle_mode() {
 
     case $mode in
         browse) transition_mode find "$1" ;;
-        find) transition_mode browse "$1" ;;
+        find) transition_mode grep "$1" ;;
         grep) transition_mode browse "$1" ;;
     esac
 }
 
 header() {
+    local result
+
     case $mode in
-        browse) printf 'Mode: Browse | Sort: %s\n' "$(sort_label)" ;;
-        find) printf 'Mode: Find | Sort: %s\n' "$(sort_label)" ;;
-        grep) printf 'Mode: Grep\n' ;;
+        browse) result="Mode: Browse | Sort: $(sort_label)" ;;
+        find) result="Mode: Find | Timeout: $(timeout_label)" ;;
+        grep) result="Mode: Grep | Timeout: $(timeout_label)" ;;
     esac
+    [[ $show_hidden == true ]] && result+=' | Hidden: On'
+    [[ $show_ignored == true ]] && result+=' | Ignored: On'
+    printf '%s\n' "$result"
 }
 
 prompt() {
@@ -281,23 +414,24 @@ main() {
 
     require_state_dir
     case $command in
-        preview) preview "$@" ;;
         run-open) run_open "$@" ;;
-        open) open "$@" ;;
         *)
             load_state
             case $command in
+                preview) preview "$@" ;;
+                resolve-path) resolve_path "$@" ;;
+                open) open "$@" ;;
                 enter) enter "$@" ;;
                 parent) parent "$@" ;;
                 start) start "$@" ;;
                 git-root) git_root_action "$@" ;;
                 toggle-sort) toggle_sort "$@" ;;
+                toggle-hidden) require_query "$@"; toggle_visibility show-hidden "$@" ;;
+                toggle-ignored) require_query "$@"; toggle_visibility show-ignored "$@" ;;
                 cycle-mode) cycle_mode "$@" ;;
                 header) (($# == 0)) || die 'header expects no arguments'; header ;;
                 prompt) (($# == 0)) || die 'prompt expects no arguments'; prompt ;;
-                *)
-                    die "unknown command: $command"
-                    ;;
+                *) die "unknown command: $command" ;;
             esac
             ;;
     esac

@@ -3,9 +3,28 @@
 set -euo pipefail
 
 STATE_DIR=${FZF_NAVIGATOR_STATE_DIR:-}
+FIELD_SEPARATOR=${FZF_NAVIGATOR_FIELD_SEPARATOR:-$'\x1f:'}
+TIMEOUT_SECONDS=${FZF_NAVIGATOR_TIMEOUT_SECONDS:-5}
 query=''
-raw_paths=()
-display_paths=()
+
+setup_logging() {
+    local log_dir
+
+    if [[ -n ${FZF_NAVIGATOR_LOG_FILE:-} ]]; then
+        LOG_FILE=$FZF_NAVIGATOR_LOG_FILE
+    elif [[ -n ${XDG_STATE_HOME:-} ]]; then
+        LOG_FILE=$XDG_STATE_HOME/fzf-navigator/fzf-navigator.log
+    elif [[ -n ${HOME:-} ]]; then
+        LOG_FILE=$HOME/.local/state/fzf-navigator/fzf-navigator.log
+    else
+        return 1
+    fi
+    log_dir=${LOG_FILE%/*}
+    [[ -n $log_dir && $log_dir != "$LOG_FILE" ]] || return 1
+    mkdir -p -- "$log_dir" 2>/dev/null || return 1
+    : >>"$LOG_FILE" 2>/dev/null || return 1
+    exec 2>>"$LOG_FILE"
+}
 
 fail() {
     printf 'fzf-navigator-source: %s\n' "$1" >&2
@@ -16,6 +35,8 @@ die() {
     printf 'fzf-navigator-source: %s\n' "$1" >&2
     exit 2
 }
+
+setup_logging || exit 1
 
 supported_path() {
     local LC_ALL=C
@@ -31,6 +52,10 @@ state_value() {
     [[ -f $file ]] || fail "state is unavailable: $name"
     IFS= read -r value <"$file" || fail "state is malformed: $name"
     printf '%s' "$value"
+}
+
+require_timeout() {
+    [[ $TIMEOUT_SECONDS =~ ^[0-9]+$ ]] || fail 'timeout must be a non-negative integer'
 }
 
 while (($# > 0)); do
@@ -59,171 +84,151 @@ done
 cwd=$(state_value cwd)
 mode=$(state_value mode)
 sort_mode=$(state_value sort-mode)
+show_hidden=$(state_value show-hidden)
+show_ignored=$(state_value show-ignored)
 supported_path "$cwd" || fail 'current directory state is malformed'
 [[ -d $cwd ]] || fail "current directory is unavailable: $cwd"
+[[ $FIELD_SEPARATOR == $'\x1f:' ]] || fail 'field separator is malformed'
+require_timeout
 
 case $mode in
-    browse|find) ;;
-    grep) fail 'Grep mode is not implemented' ;;
+    browse|find|grep) ;;
     *) fail "invalid mode in state: $mode" ;;
 esac
 case $sort_mode in
     ascending|recent|descending) ;;
     *) fail "invalid sort mode in state: $sort_mode" ;;
 esac
-command -v eza >/dev/null 2>&1 || fail 'eza is required'
+case $show_hidden in
+    true|false) ;;
+    *) fail 'hidden visibility state is malformed' ;;
+esac
+case $show_ignored in
+    true|false) ;;
+    *) fail 'ignored visibility state is malformed' ;;
+esac
 
-temporary_dir=$(mktemp -d "$STATE_DIR/source.XXXXXX") || fail 'could not create source workspace'
-trap 'rm -rf -- "$temporary_dir"' EXIT
+run_decorated_fd() {
+    local -a fd_args=(
+        fd
+        --type file
+        --type directory
+        --type symlink
+        --exclude '*[[:cntrl:]]*'
+    )
+    local -a eza_args=(
+        eza
+        --stdin
+        --oneline
+        --icons=always
+        --color=always
+        --hyperlink=never
+        --no-quotes
+        --treat-dirs-as-files
+        --dereference
+    )
+    local -a pipeline_status
+    local fd_status
+    local eza_status
 
-collect_browse() {
-    local raw
-    local -a entries
+    command -v fd >/dev/null 2>&1 || fail "fd is required for ${mode^} mode"
+    command -v eza >/dev/null 2>&1 || fail 'eza is required'
 
-    shopt -s nullglob
-    if [[ $cwd == / ]]; then
-        entries=(/*)
-    else
-        entries=("$cwd"/*)
-    fi
-    shopt -u nullglob
+    [[ $show_hidden == true ]] && fd_args+=(--hidden)
+    [[ $show_ignored == true ]] && fd_args+=(--no-ignore)
 
-    for raw in "${entries[@]}"; do
-        supported_path "$raw" || continue
-        [[ -e $raw || -L $raw ]] || continue
-        raw_paths+=("$raw")
-        display_paths+=("${raw##*/}")
-    done
-}
-
-collect_find() {
-    local fd_output=$temporary_dir/fd-output
-    local relative
-    local raw
-
-    command -v fd >/dev/null 2>&1 || fail 'fd is required for Find mode'
-    (
-        cd -- "$cwd"
-        fd --print0 --color=never .
-    ) >"$fd_output"
-
-    while IFS= read -r -d '' relative; do
-        relative=${relative#./}
-        [[ -n $relative ]] || continue
-        [[ ! $relative =~ [[:cntrl:]] ]] || continue
-        if [[ $cwd == / ]]; then
-            raw=/${relative%/}
-        else
-            raw=${cwd%/}/${relative%/}
-        fi
-        supported_path "$raw" || continue
-        [[ -e $raw || -L $raw ]] || continue
-        raw_paths+=("$raw")
-        display_paths+=("$relative")
-    done <"$fd_output"
-}
-
-sort_candidates() {
-    local sort_input=$temporary_dir/sort-input
-    local sort_output=$temporary_dir/sort-output
-    local record
-    local index
-    local group
-    local mtime
-    local -a sorted_raw=()
-    local -a sorted_display=()
-
-    ((${#raw_paths[@]} > 0)) || return
-
-    for index in "${!raw_paths[@]}"; do
-        if [[ -d ${raw_paths[index]} ]]; then
-            group=0
-        else
-            group=1
-        fi
-
-        case $sort_mode in
-            ascending)
-                printf '%s\t%s\t%s\n' "$group" "${display_paths[index]}" "$index" >>"$sort_input"
-                ;;
-            recent)
-                if ! mtime=$(stat --printf='%Y' -- "${raw_paths[index]}"); then
-                    fail "could not read modification time: ${raw_paths[index]}"
-                fi
-                [[ $mtime =~ ^-?[0-9]+$ ]] || fail "invalid modification time: ${raw_paths[index]}"
-                if [[ -d ${raw_paths[index]} ]]; then
-                    group=1
-                else
-                    group=0
-                fi
-                printf '%s\t%s\t%s\t%s\n' "$group" "$mtime" "${display_paths[index]}" "$index" >>"$sort_input"
-                ;;
-            descending)
-                if [[ -d ${raw_paths[index]} ]]; then
-                    group=1
-                else
-                    group=0
-                fi
-                printf '%s\t%s\t%s\n' "$group" "${display_paths[index]}" "$index" >>"$sort_input"
-                ;;
-        esac
-    done
-
-    case $sort_mode in
-        ascending)
-            LC_ALL=C sort -t $'\t' -k1,1n -k2,2 <"$sort_input" >"$sort_output"
+    case $mode in
+        browse)
+            fd_args+=(--max-depth 1)
+            case $sort_mode in
+                ascending) eza_args+=(--sort=name --group-directories-first) ;;
+                recent) eza_args+=(--sort=modified --group-directories-last) ;;
+                descending) eza_args+=(--sort=name --reverse --group-directories-last) ;;
+            esac
             ;;
-        recent)
-            LC_ALL=C sort -t $'\t' -k1,1n -k2,2nr -k3,3 <"$sort_input" >"$sort_output"
-            ;;
-        descending)
-            LC_ALL=C sort -t $'\t' -k1,1n -k2,2r <"$sort_input" >"$sort_output"
+        find)
+            eza_args+=(--sort=none)
+            if [[ $TIMEOUT_SECONDS != 0 ]]; then
+                command -v timeout >/dev/null 2>&1 || fail 'timeout is required for Find mode'
+            fi
             ;;
     esac
+    fd_args+=(.)
 
-    while IFS= read -r record; do
-        index=${record##*$'\t'}
-        sorted_raw+=("${raw_paths[index]}")
-        sorted_display+=("${display_paths[index]}")
-    done <"$sort_output"
-    raw_paths=("${sorted_raw[@]}")
-    display_paths=("${sorted_display[@]}")
+    set +e
+    (
+        cd -- "$cwd" || exit
+        if [[ $mode == find && $TIMEOUT_SECONDS != 0 ]]; then
+            timeout "$TIMEOUT_SECONDS" "${fd_args[@]}"
+        else
+            "${fd_args[@]}"
+        fi
+    ) | (
+        cd -- "$cwd" || exit
+        "${eza_args[@]}"
+    )
+    pipeline_status=("${PIPESTATUS[@]}")
+    set -e
+
+    fd_status=${pipeline_status[0]}
+    eza_status=${pipeline_status[1]}
+
+    case $fd_status in
+        0) ;;
+        124) [[ $mode == find ]] || return "$fd_status" ;;
+        141) return "$fd_status" ;;
+        *) fail "fd failed (exit $fd_status)" ;;
+    esac
+    case $eza_status in
+        0) ;;
+        141) return "$eza_status" ;;
+        *) fail "eza failed (exit $eza_status)" ;;
+    esac
 }
 
-render_candidates() {
-    local eza_input=$temporary_dir/eza-input
-    local eza_output=$temporary_dir/eza-output
-    local display
-    local index
-    local -a decorated=()
+run_grep() {
+    local -a rg_args=(
+        rg
+        --no-config
+        --fixed-strings
+        --smart-case
+        --line-number
+        --column
+        --with-filename
+        --no-heading
+        --color=always
+        --field-match-separator="$FIELD_SEPARATOR"
+    )
+    local rg_status
 
-    ((${#raw_paths[@]} > 0)) || return
-    printf '%s\n' "${display_paths[@]}" >"$eza_input"
+    [[ -n $query ]] || return 0
+    command -v rg >/dev/null 2>&1 || fail 'rg is required for Grep mode'
+    [[ $TIMEOUT_SECONDS == 0 ]] || command -v timeout >/dev/null 2>&1 || fail 'timeout is required for Grep mode'
+
+    [[ $show_hidden == true ]] && rg_args+=(--hidden)
+    [[ $show_ignored == true ]] && rg_args+=(--no-ignore)
+    rg_args+=(-- "$query")
+
+    set +e
     (
-        cd -- "$cwd"
-        eza \
-            --stdin \
-            --oneline \
-            --icons=always \
-            --color=always \
-            --no-quotes \
-            --sort=none \
-            --treat-dirs-as-files
-    ) <"$eza_input" >"$eza_output"
+        cd -- "$cwd" || exit
+        if [[ $TIMEOUT_SECONDS == 0 ]]; then
+            "${rg_args[@]}"
+        else
+            timeout "$TIMEOUT_SECONDS" "${rg_args[@]}"
+        fi
+    )
+    rg_status=$?
+    set -e
 
-    mapfile -t decorated <"$eza_output"
-    ((${#decorated[@]} == ${#raw_paths[@]})) || fail 'eza did not render every candidate'
-
-    for index in "${!raw_paths[@]}"; do
-        display=${decorated[index]}
-        [[ $display != *$'\t'* && $display != *$'\r'* ]] || fail 'eza produced an unsupported display record'
-        printf '%s\t0\t0\t%s\n' "${raw_paths[index]}" "$display"
-    done
+    case $rg_status in
+        0|1|124) ;;
+        141) return "$rg_status" ;;
+        *) fail "rg failed (exit $rg_status)" ;;
+    esac
 }
 
 case $mode in
-    browse) collect_browse ;;
-    find) collect_find ;;
+    browse|find) run_decorated_fd ;;
+    grep) run_grep ;;
 esac
-sort_candidates
-render_candidates

@@ -5,6 +5,27 @@ set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 SOURCE=$ROOT_DIR/fzf-navigator-source
 ACTION=$ROOT_DIR/fzf-navigator-action
+FIELD_SEPARATOR=$'\x1f:'
+TIMEOUT_SECONDS=${FZF_NAVIGATOR_TIMEOUT_SECONDS:-5}
+
+setup_logging() {
+    local log_dir
+
+    if [[ -n ${FZF_NAVIGATOR_LOG_FILE:-} ]]; then
+        LOG_FILE=$FZF_NAVIGATOR_LOG_FILE
+    elif [[ -n ${XDG_STATE_HOME:-} ]]; then
+        LOG_FILE=$XDG_STATE_HOME/fzf-navigator/fzf-navigator.log
+    elif [[ -n ${HOME:-} ]]; then
+        LOG_FILE=$HOME/.local/state/fzf-navigator/fzf-navigator.log
+    else
+        return 1
+    fi
+    log_dir=${LOG_FILE%/*}
+    [[ -n $log_dir && $log_dir != "$LOG_FILE" ]] || return 1
+    mkdir -p -- "$log_dir" 2>/dev/null || return 1
+    : >>"$LOG_FILE" 2>/dev/null || return 1
+    exec 2>>"$LOG_FILE"
+}
 
 usage() {
     printf 'Usage: %s\n' "${0##*/}"
@@ -14,6 +35,10 @@ fail() {
     printf 'fzf-navigator: %s\n' "$1" >&2
     exit 1
 }
+
+setup_logging || exit 1
+export FZF_NAVIGATOR_LOG_FILE=$LOG_FILE
+printf 'fzf-navigator: starting session in %s\n' "$PWD" >&2
 
 supported_path() {
     local LC_ALL=C
@@ -39,6 +64,13 @@ write_state() {
 [[ -x $SOURCE ]] || fail "source helper is unavailable: $SOURCE"
 [[ -x $ACTION ]] || fail "action helper is unavailable: $ACTION"
 command -v fzf >/dev/null 2>&1 || fail 'fzf is required'
+[[ $TIMEOUT_SECONDS =~ ^[0-9]+$ ]] || fail 'FZF_NAVIGATOR_TIMEOUT_SECONDS must be a non-negative integer'
+command -v theme-set >/dev/null 2>&1 || fail 'theme-set is required'
+appearance=$(theme-set status) || fail 'could not determine the current theme'
+case $appearance in
+    light|dark) ;;
+    *) fail 'theme-set returned an invalid theme' ;;
+esac
 
 cwd=$(pwd -P)
 supported_path "$cwd" || fail "starting directory contains unsupported control characters: $cwd"
@@ -52,6 +84,9 @@ fi
 state_dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/fzf-navigator.XXXXXX") || fail 'could not create session state'
 export FZF_NAVIGATOR_STATE_DIR=$state_dir
 export FZF_NAVIGATOR_BIN_DIR=$ROOT_DIR
+export FZF_NAVIGATOR_FIELD_SEPARATOR=$FIELD_SEPARATOR
+export FZF_NAVIGATOR_TIMEOUT_SECONDS=$TIMEOUT_SECONDS
+export FZF_NAVIGATOR_APPEARANCE=$appearance
 trap 'rm -rf -- "$state_dir"' EXIT
 
 write_state cwd "$cwd"
@@ -59,32 +94,29 @@ write_state start-cwd "$cwd"
 write_state git-root "$git_root"
 write_state mode browse
 write_state sort-mode ascending
+write_state show-hidden false
+write_state show-ignored false
 
-candidate_file=$state_dir/candidates
 selection_file=$state_dir/selection
-set +e
-"$SOURCE" >"$candidate_file"
-source_status=$?
-set -e
-((source_status == 0)) || fail "source failed (exit $source_status)"
-
 prompt=$("$ACTION" prompt)
 header=$("$ACTION" header)
 ACTION_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-action"'
+SOURCE_COMMAND='"$FZF_NAVIGATOR_BIN_DIR/fzf-navigator-source"'
 
 fzf_args=(
     --layout=reverse
     --ansi
     --scheme=path
-    --delimiter=$'\t'
-    --with-nth=4
+    --delimiter="$FIELD_SEPARATOR"
     --accept-nth=1
     --prompt="$prompt"
     --header="$header"
-    --footer='^O open  ^E enter  ^T parent  ^R start  ^G git root  ^Y sort  ^F mode'
+    --footer='^O open  ^E enter  ^T parent  ^R start  ^G git root  ^Y sort  ^F mode  M-H hidden  M-I ignored'
     --preview="$ACTION_COMMAND preview {1} {2} {3}"
     --preview-window='right,50%,+{2}/2'
     --preview-border=none
+    --bind="change:reload($SOURCE_COMMAND --query {q})"
+    --bind='start:unbind(change)'
     --bind="ctrl-o:transform($ACTION_COMMAND open {1})"
     --bind="ctrl-e:transform($ACTION_COMMAND enter {1} {q})"
     --bind="ctrl-t:transform($ACTION_COMMAND parent {q})"
@@ -92,23 +124,41 @@ fzf_args=(
     --bind="ctrl-g:transform($ACTION_COMMAND git-root {q})"
     --bind="ctrl-y:transform($ACTION_COMMAND toggle-sort {q})"
     --bind="ctrl-f:transform($ACTION_COMMAND cycle-mode {q})"
+    --bind="alt-h:transform($ACTION_COMMAND toggle-hidden {q})"
+    --bind="alt-i:transform($ACTION_COMMAND toggle-ignored {q})"
 )
 
 set +e
-fzf "${fzf_args[@]}" <"$candidate_file" >"$selection_file"
-fzf_status=$?
+"$SOURCE" | fzf "${fzf_args[@]}" >"$selection_file"
+pipeline_status=("${PIPESTATUS[@]}")
 set -e
 
+source_status=${pipeline_status[0]}
+fzf_status=${pipeline_status[1]}
+
 case $fzf_status in
-0)
-    if [[ -s $selection_file ]]; then
-        selection=$(<"$selection_file")
-        supported_path "$selection" || fail 'fzf returned an unsupported result path'
-        printf '%s\n' "$selection"
-    fi
-    ;;
-1 | 130) ;;
-*)
-    fail "fzf failed (exit $fzf_status)"
-    ;;
+    0|1|130) ;;
+    *) fail "fzf failed (exit $fzf_status)" ;;
+esac
+case $source_status in
+    0) ;;
+    141) ;;
+    *) fail "source failed (exit $source_status)" ;;
+esac
+
+case $fzf_status in
+    0)
+        if [[ -s $selection_file ]]; then
+            selection=$(<"$selection_file")
+            IFS= read -r final_mode <"$state_dir/mode" || fail 'final mode state is malformed'
+            case $final_mode in
+                browse|find|grep) ;;
+                *) fail 'final mode state is malformed' ;;
+            esac
+            selection=$("$ACTION" resolve-path "$selection")
+            supported_path "$selection" || fail 'resolved selection path is malformed'
+            printf '%s\n' "$selection"
+        fi
+        ;;
+    1|130) ;;
 esac
